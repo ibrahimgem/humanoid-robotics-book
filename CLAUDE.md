@@ -208,3 +208,10 @@ Wait for consent; never auto-create ADRs. Group related decisions (stacks, authe
 
 ## Code Standards
 See `.specify/memory/constitution.md` for code quality, testing, performance, security, and architecture principles.
+
+## Active Technologies
+- JavaScript/TypeScript (Node.js 18+), Python (ROS 2 compatible) + Docusaurus (v3.x), React, MDX, Node.js, npm (001-docusaurus-humanoid-book)
+- Static file storage (GitHub Pages), documentation files in Markdown/MDX forma (001-docusaurus-humanoid-book)
+
+## Recent Changes
+- 001-docusaurus-humanoid-book: Added JavaScript/TypeScript (Node.js 18+), Python (ROS 2 compatible) + Docusaurus (v3.x), React, MDX, Node.js, npm

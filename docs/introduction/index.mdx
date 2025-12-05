@@ -1,0 +1,80 @@
+---
+sidebar_position: 1
+title: Introduction to Humanoid Robotics
+description: Welcome to the comprehensive guide on Physical AI & Humanoid Robotics
+---
+
+# Introduction to Humanoid Robotics
+
+Welcome to the comprehensive guide on Physical AI & Humanoid Robotics. This book covers the essential concepts, tools, and techniques needed to understand and develop humanoid robots.
+
+## What You'll Learn
+
+This book is structured to take you from basic concepts to advanced topics in humanoid robotics:
+
+- **Physical AI**: Understanding embodied intelligence and how robots interact with the physical world
+- **ROS 2**: Robot Operating System concepts, nodes, topics, services, and URDF
+- **Simulation**: Working with Gazebo, Unity, and NVIDIA Isaac Sim for robot simulation
+- **AI Integration**: Vision-Language-Action (VLA) models and their application in robotics
+- **Humanoid Kinematics**: Locomotion, balance, and manipulation for humanoid robots
+- **Conversational Robotics**: Voice interfaces and human-robot interaction
+- **Capstone Project**: Building an autonomous humanoid robot that can respond to voice commands
+
+## Target Audience
+
+This book is designed for:
+- Students and researchers in robotics and AI
+- Engineers looking to enter the field of humanoid robotics
+- Developers interested in ROS 2 and robot simulation
+- Anyone curious about the intersection of AI and physical systems
+
+## Prerequisites
+
+To get the most out of this book, you should have:
+- Basic programming knowledge (Python preferred)
+- Understanding of fundamental mathematics (linear algebra, calculus)
+- Familiarity with Linux command line (helpful but not required)
+
+## How to Use This Book
+
+Each chapter builds on previous concepts, so we recommend following the book in order. However, each chapter is designed to be self-contained enough that you can reference specific topics as needed.
+
+All code examples are provided in Python (for ROS 2) and follow the IEEE citation standards for technical accuracy.
+
+## First Example: Simple ROS 2 Node
+
+Here's a simple ROS 2 node to illustrate the kind of code you'll encounter in this book:
+
+```python
+# Basic ROS 2 publisher example
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+class MinimalPublisher(Node):
+    def __init__(self):
+        super().__init__('minimal_publisher')
+        self.publisher_ = self.create_publisher(String, 'topic', 10)
+        timer_period = 0.5  # seconds
+        self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.i = 0
+
+    def timer_callback(self):
+        msg = String()
+        msg.data = f'Hello World: {self.i}'
+        self.publisher_.publish(msg)
+        self.get_logger().info(f'Publishing: "{msg.data}"')
+        self.i += 1
+
+def main(args=None):
+    rclpy.init(args=args)
+    minimal_publisher = MinimalPublisher()
+    rclpy.spin(minimal_publisher)
+    minimal_publisher.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+This example demonstrates the basic structure of a ROS 2 node, including node creation, publisher setup, and callback functions.

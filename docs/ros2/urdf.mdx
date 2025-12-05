@@ -1,0 +1,189 @@
+---
+title: "URDF - Unified Robot Description Format"
+sidebar_position: 3
+description: "Understanding URDF for robot modeling and description in ROS 2"
+---
+
+# URDF - Unified Robot Description Format
+
+:::info Learning Objective
+After completing this chapter, you will understand how to create and work with URDF files to describe robot models in ROS 2. You will be able to define robot structure, kinematics, and dynamics for simulation and visualization.
+:::
+
+Unified Robot Description Format (URDF) is an XML format for representing a robot model. URDF is used to describe the physical and visual properties of a robot, including its links, joints, and other components.
+
+## What is URDF?
+
+URDF (Unified Robot Description Format) is an XML format used in ROS to describe the physical properties of a robot. It defines the robot's structure, kinematics, and dynamics, allowing for simulation and visualization of the robot in various environments.
+
+### Key Components of URDF
+
+- **Links**: Represent rigid bodies of the robot
+- **Joints**: Define how links are connected and how they move relative to each other
+- **Visual**: Defines how the robot appears in simulation and visualization tools
+- **Collision**: Defines the collision properties of the robot
+- **Inertial**: Specifies mass, center of mass, and inertia properties
+
+## Basic URDF Structure
+
+```xml
+<?xml version="1.0"?>
+<robot name="my_robot">
+  <!-- Links -->
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <cylinder length="0.6" radius="0.2"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder length="0.6" radius="0.2"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="10"/>
+      <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0"/>
+    </inertial>
+  </link>
+
+  <!-- Joints -->
+  <joint name="base_to_wheel" type="continuous">
+    <parent link="base_link"/>
+    <child link="wheel_link"/>
+    <origin xyz="0 0.2 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <link name="wheel_link">
+    <visual>
+      <geometry>
+        <cylinder length="0.1" radius="0.05"/>
+      </geometry>
+    </visual>
+  </link>
+</robot>
+```
+
+## URDF for Humanoid Robots
+
+For humanoid robots, URDF becomes more complex as it needs to represent the full body structure with multiple degrees of freedom.
+
+### Example: Simple Humanoid Robot
+
+```xml
+<?xml version="1.0"?>
+<robot name="simple_humanoid">
+  <!-- Torso -->
+  <link name="torso">
+    <visual>
+      <geometry>
+        <box size="0.3 0.2 0.5"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.3 0.2 0.5"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- Head -->
+  <joint name="neck_joint" type="revolute">
+    <parent link="torso"/>
+    <child link="head"/>
+    <origin xyz="0 0 0.3" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.5" upper="0.5" effort="100" velocity="1"/>
+  </joint>
+
+  <link name="head">
+    <visual>
+      <geometry>
+        <sphere radius="0.1"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <!-- Left Arm -->
+  <joint name="left_shoulder_joint" type="revolute">
+    <parent link="torso"/>
+    <child link="left_upper_arm"/>
+    <origin xyz="0.2 0 0.1" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.57" upper="1.57" effort="100" velocity="1"/>
+  </joint>
+
+  <link name="left_upper_arm">
+    <visual>
+      <geometry>
+        <cylinder length="0.3" radius="0.05"/>
+      </geometry>
+    </visual>
+  </link>
+</robot>
+```
+
+## URDF Tools and Visualization
+
+### Robot State Publisher
+
+The robot_state_publisher package in ROS 2 takes the joint angles of a robot and calculates the 3D poses of the robot links. This allows for visualization of the robot in RViz and other tools.
+
+### Xacro for Complex Models
+
+For complex robots, Xacro (XML Macros) is often used to simplify URDF creation by allowing macros, constants, and expressions:
+
+```xml
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="my_robot">
+  <xacro:property name="M_PI" value="3.14159"/>
+
+  <xacro:macro name="simple_cylinder" params="name radius length xyz">
+    <link name="${name}">
+      <visual>
+        <origin xyz="${xyz}"/>
+        <geometry>
+          <cylinder radius="${radius}" length="${length}"/>
+        </geometry>
+      </visual>
+    </link>
+  </xacro:macro>
+
+  <xacro:simple_cylinder name="base" radius="0.1" length="0.2" xyz="0 0 0"/>
+</robot>
+```
+
+## URDF in Simulation
+
+URDF models are essential for robot simulation in Gazebo and other simulation environments. The physical properties defined in URDF are used by the physics engine to simulate realistic robot behavior.
+
+### Gazebo Integration
+
+To use URDF with Gazebo, special Gazebo-specific tags are added to the URDF:
+
+```xml
+<gazebo reference="link_name">
+  <material>Gazebo/Blue</material>
+  <mu1>0.2</mu1>
+  <mu2>0.2</mu2>
+</gazebo>
+```
+
+## Related Topics
+
+To understand how URDF models integrate with ROS 2 communication patterns, see [Nodes, Topics, and Services](/docs/ros2/nodes-topics-services). For an overview of ROS 2 concepts, see [ROS 2 Overview](/docs/ros2). For Python implementation details, check out [Python ROS 2 Client Library (rclpy)](/docs/ros2/rclpy-examples).
+
+## Best Practices
+
+1. **Use consistent naming**: Follow a consistent naming convention for links and joints
+2. **Include inertial properties**: Properly define mass and inertia for accurate simulation
+3. **Validate URDF**: Use tools like `check_urdf` to validate your URDF files
+4. **Organize complex models**: Use Xacro for complex robots to reduce redundancy
+5. **Use appropriate collision geometry**: Balance between accuracy and computational efficiency
+
+## References
+
+1. ROS 2 Documentation. (2023). "URDF Tutorials." [Online]. Available: https://docs.ros.org/en/humble/Tutorials/URDF/URDF-Main.html
+2. Chitta, S., et al. (2010). "Automatic generation of object models for manipulation." IEEE International Conference on Robotics and Automation, pp. 450-456.
+3. Bohren, J., & Cousins, S. (2013). "ros_control: A generic and simple control framework for ROS." arXiv preprint arXiv:1309.1375.

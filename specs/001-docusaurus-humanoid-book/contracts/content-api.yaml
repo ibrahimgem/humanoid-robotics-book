@@ -1,0 +1,112 @@
+# Content Management API Contract
+
+## Overview
+This API contract defines the interfaces for managing content in the Humanoid Robotics Book documentation site. While the primary delivery is static content via Docusaurus, this contract supports potential content management workflows.
+
+## Base URL
+`https://api.humanoid-robotics-book.com`
+
+## Endpoints
+
+### Get Chapter Content
+```
+GET /api/chapters/{chapterId}
+```
+
+#### Description
+Retrieve the content of a specific chapter in the humanoid robotics book.
+
+#### Path Parameters
+- `chapterId` (string): Unique identifier for the chapter (e.g., "ros2-basics", "gazebo-simulation")
+
+#### Query Parameters
+- `version` (string, optional): Documentation version (e.g., "v1.0", "latest")
+
+#### Response
+```
+Status: 200 OK
+Content-Type: application/json
+```
+
+```json
+{
+  "id": "ros2-basics",
+  "title": "ROS 2 Basics",
+  "content": "MDX formatted content",
+  "metadata": {
+    "author": "Author Name",
+    "created": "2025-01-15",
+    "modified": "2025-01-20",
+    "wordCount": 1500,
+    "estimatedReadingTime": "6 minutes"
+  },
+  "citations": [
+    {
+      "id": "cite1",
+      "ieee": "[1] A. Author, \"Paper title,\" Journal Name, vol. X, no. Y, pp. ZZ-ZZ, Year."
+    }
+  ],
+  "dependencies": ["introduction/index"],
+  "related": ["ros2-advanced"]
+}
+```
+
+### Search Content
+```
+GET /api/search
+```
+
+#### Description
+Search across all book content for relevant topics.
+
+#### Query Parameters
+- `q` (string): Search query
+- `limit` (integer, optional): Maximum number of results (default: 10)
+
+#### Response
+```
+Status: 200 OK
+```
+
+```json
+{
+  "results": [
+    {
+      "id": "chapter-id",
+      "title": "Chapter Title",
+      "excerpt": "Relevant excerpt...",
+      "url": "/docs/chapter-id",
+      "score": 0.95
+    }
+  ],
+  "total": 1,
+  "query": "search term"
+}
+```
+
+### Get All Chapters
+```
+GET /api/chapters
+```
+
+#### Description
+Retrieve a list of all available chapters in the book.
+
+#### Response
+```
+Status: 200 OK
+```
+
+```json
+{
+  "chapters": [
+    {
+      "id": "introduction/index",
+      "title": "Introduction to Physical AI",
+      "description": "Overview of physical AI concepts",
+      "position": 1,
+      "category": "Introduction"
+    }
+  ]
+}
+```

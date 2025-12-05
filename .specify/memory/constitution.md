@@ -1,55 +1,81 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!-- SYNC IMPACT REPORT:
+Version change: N/A → 1.0.0
+Modified principles: N/A (new constitution)
+Added sections: All sections
+Removed sections: N/A
+Templates requiring updates:
+- .specify/templates/plan-template.md ✅ updated
+- .specify/templates/spec-template.md ✅ updated
+- .specify/templates/tasks-template.md ✅ updated
+- .specify/templates/commands/*.md ✅ reviewed
+- README.md ⚠ pending
+Follow-up TODOs: None
+-->
+# Humanoid Robotics Book Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
-
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
-
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
-
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
-
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
-
-### [PRINCIPLE_6_NAME]
+### Technical Accuracy
+All content must be technically accurate with respect to robotics, AI, and control systems. All technical claims must be supported by credible sources such as research papers, robotics textbooks, or official documentation. This ensures the educational value and trustworthiness of the content.
 
 
-[PRINCIPLE__DESCRIPTION]
+### Beginner-Friendly Clarity
+Content must be accessible to beginners while maintaining engineering correctness. Complex concepts should be explained with clear examples, analogies, and step-by-step explanations. The goal is to make advanced robotics concepts approachable without sacrificing technical precision.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### Modular Chapter Structure
+The book follows a modular structure with 8-12 chapters, each 1,000-2,000 words. Each chapter should be self-contained enough to be understood independently while building coherently on previous chapters. This enables flexible learning paths and easier maintenance.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### Source-Based Content
+All technical claims must reference credible sources using IEEE citation style. Sources include research papers, robotics textbooks, and official documentation. This creates a foundation of verifiable information and enables readers to explore topics in greater depth.
+
+
+### Consistent Terminology
+Maintain consistency in terminology, diagrams, and explanations throughout the book. Technical terms should be defined once and used consistently. Visual elements should follow a unified style guide to enhance readability and comprehension.
+
+
+### Quality Visuals
+All diagrams and visuals must be either auto-generated or properly licensed. Visual content should enhance understanding of complex concepts and follow accessibility standards. Diagrams should be clear, labeled appropriately, and support the textual content.
+
+
+## Technical Standards
+
+### Content Standards
+- Citation style: IEEE format for all references
+- Source types: Research papers, robotics textbooks, official documentation
+- Content length: 1,000-2,000 words per chapter
+- Chapter count: 8-12 chapters total
+- Tone: Educational, engineering-focused, accessible
+
+
+### Technical Implementation
+- Build system: Docusaurus for static site generation
+- Deployment: GitHub Pages for public access
+- Content generation: Spec-Kit-Plus workflows with Claude Code Router
+- Documentation structure: Follow Docusaurus best practices
+
+
+## Development Workflow
+
+### Content Creation Process
+- All content must be generated following Spec-Kit-Plus workflows
+- Each chapter requires technical review for accuracy
+- Visual content must be reviewed for clarity and licensing
+- Content must build successfully in Docusaurus before acceptance
+
+
+### Quality Assurance
+- Technical claims verification against credible sources
+- Peer review process for technical accuracy
+- Accessibility compliance for all content
+- Cross-reference consistency checks
+
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution governs all aspects of the Humanoid Robotics Book project. All contributors must adhere to these principles and standards. Amendments to this constitution require documentation of the change, justification for the amendment, and approval from project maintainers. All content, code, and documentation must comply with these standards before being accepted into the repository.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+All pull requests and reviews must verify compliance with these principles. Content that does not meet the technical accuracy, citation, or accessibility standards will not be accepted.
+
+**Version**: 1.0.0 | **Ratified**: 2025-12-05 | **Last Amended**: 2025-12-05
