@@ -14,6 +14,10 @@ This documentation site provides a structured learning path for humanoid robotic
 - Conversational robotics
 - Capstone project: Autonomous Humanoid (Voice → Plan → Act)
 
+## Live Site
+
+The book is deployed and accessible at: **https://ibrahimgem.github.io/humanoid-robotics-book/**
+
 ## Setup Instructions
 
 1. Make sure you have Node.js 18+ installed
@@ -25,7 +29,28 @@ This documentation site provides a structured learning path for humanoid robotic
 
 - Build for production: `npm run build`
 - Serve production build locally: `npm run serve`
-- The site is configured for deployment to GitHub Pages
+- Deploy to GitHub Pages: `GIT_USER=ibrahimgem npm run deploy`
+
+## Content Structure
+
+The book is organized into progressive chapters:
+
+- **Introduction**: Physical AI, embodied intelligence concepts
+- **ROS 2**: Core ROS 2 architecture, nodes, topics, services, URDF, rclpy
+- **Simulation**: Gazebo and Unity simulation environments
+- **NVIDIA Isaac**: Isaac Sim, Isaac ROS, Nav2
+- **VLA**: Vision-Language-Action models for robotics
+- **Humanoid Kinematics**: Locomotion, balance, manipulation
+- **Conversational Robotics**: Voice interfaces and natural language
+- **Capstone**: Autonomous humanoid project
+
+## Technical Standards
+
+- Format: MDX with React components
+- Citation style: IEEE
+- Chapter length: 1,000-2,000 words
+- Architecture: Docusaurus Classic preset
+- Deployment: GitHub Pages
 
 ## Contributing
 
