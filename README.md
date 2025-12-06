@@ -29,7 +29,18 @@ The book is deployed and accessible at: **https://ibrahimgem.github.io/humanoid-
 
 - Build for production: `npm run build`
 - Serve production build locally: `npm run serve`
-- Deploy to GitHub Pages: `GIT_USER=ibrahimgem npm run deploy`
+- Deploy to GitHub Pages: The site is automatically deployed via GitHub Actions when changes are pushed to the main branch
+
+### GitHub Actions Deployment
+
+This project uses GitHub Actions for automated deployment to GitHub Pages. When changes are pushed to the main branch, the workflow will:
+1. Checkout the repository
+2. Setup Node.js environment
+3. Install dependencies
+4. Build the Docusaurus site
+5. Deploy the built site to the `gh-pages` branch
+
+To trigger a manual deployment, you can use the "workflow_dispatch" option in the GitHub Actions tab.
 
 ## Content Structure
 
