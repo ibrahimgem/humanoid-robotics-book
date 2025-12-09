@@ -67,7 +67,15 @@ Given that feature description, do this:
        If empty: ERROR "No feature description provided"
     2. Extract key concepts from description
        Identify: actors, actions, data, constraints
-    3. For unclear aspects:
+    3. For complex features, consider engaging relevant subagents:
+       - For RAG systems: Use rag-architect, embeddings-engineer, hybrid-retrieval-engineer
+       - For backend systems: Use backend-rag-developer, db-admin-neon-qdrant
+       - For frontend integration: Use frontend-rag-integrator
+       - For security: Use rag-qa-security
+       - For deployment: Use rag-deployer
+       - For OpenAI integration: Use openai-agent-integrator
+       - For content sync: Use content-sync-automator
+    4. For unclear aspects:
        - Make informed guesses based on context and industry standards
        - Only mark with [NEEDS CLARIFICATION: specific question] if:
          - The choice significantly impacts feature scope or user experience
@@ -75,17 +83,21 @@ Given that feature description, do this:
          - No reasonable default exists
        - **LIMIT: Maximum 3 [NEEDS CLARIFICATION] markers total**
        - Prioritize clarifications by impact: scope > security/privacy > user experience > technical details
-    4. Fill User Scenarios & Testing section
+    5. Fill User Scenarios & Testing section
        If no clear user flow: ERROR "Cannot determine user scenarios"
-    5. Generate Functional Requirements
+    6. Generate Functional Requirements
        Each requirement must be testable
        Use reasonable defaults for unspecified details (document assumptions in Assumptions section)
-    6. Define Success Criteria
+       Consider using relevant skills for validation:
+       - For RAG features: rag-validator, hallucination-detector
+       - For security: security-auditor
+       - For performance: performance-validator
+    7. Define Success Criteria
        Create measurable, technology-agnostic outcomes
        Include both quantitative metrics (time, performance, volume) and qualitative measures (user satisfaction, task completion)
        Each criterion must be verifiable without implementation details
-    7. Identify Key Entities (if data involved)
-    8. Return: SUCCESS (spec ready for planning)
+    8. Identify Key Entities (if data involved)
+    9. Return: SUCCESS (spec ready for planning)
 
 5. Write the specification to SPEC_FILE using the template structure, replacing placeholders with concrete details derived from the feature description (arguments) while preserving section order and headings.
 
@@ -133,6 +145,13 @@ Given that feature description, do this:
    b. **Run Validation Check**: Review the spec against each checklist item:
       - For each item, determine if it passes or fails
       - Document specific issues found (quote relevant spec sections)
+      - Consider using relevant skills during validation:
+        - Use rag-validator to check RAG accuracy
+        - Use security-auditor to validate security requirements
+        - Use performance-validator to verify performance criteria
+        - Use hallucination-detector to ensure response quality
+        - Use api-tester for API-related features
+        - Use link-checker for documentation features
 
    c. **Handle Validation Results**:
 
@@ -206,13 +225,21 @@ When creating this spec from a user prompt:
 
 1. **Make informed guesses**: Use context, industry standards, and common patterns to fill gaps
 2. **Document assumptions**: Record reasonable defaults in the Assumptions section
-3. **Limit clarifications**: Maximum 3 [NEEDS CLARIFICATION] markers - use only for critical decisions that:
+3. **Leverage appropriate subagents for complex features**:
+   - For RAG systems: Use rag-architect for architecture, embeddings-engineer for data processing, hybrid-retrieval-engineer for search
+   - For backend development: Use backend-rag-developer, db-admin-neon-qdrant for database design
+   - For frontend integration: Use frontend-rag-integrator for UI components
+   - For security considerations: Use rag-qa-security for security reviews
+   - For deployment planning: Use rag-deployer for infrastructure
+   - For OpenAI integration: Use openai-agent-integrator for LLM orchestration
+   - For content sync: Use content-sync-automator for automation
+4. **Limit clarifications**: Maximum 3 [NEEDS CLARIFICATION] markers - use only for critical decisions that:
    - Significantly impact feature scope or user experience
    - Have multiple reasonable interpretations with different implications
    - Lack any reasonable default
-4. **Prioritize clarifications**: scope > security/privacy > user experience > technical details
-5. **Think like a tester**: Every vague requirement should fail the "testable and unambiguous" checklist item
-6. **Common areas needing clarification** (only if no reasonable default exists):
+5. **Prioritize clarifications**: scope > security/privacy > user experience > technical details
+6. **Think like a tester**: Every vague requirement should fail the "testable and unambiguous" checklist item
+7. **Common areas needing clarification** (only if no reasonable default exists):
    - Feature scope and boundaries (include/exclude specific use cases)
    - User types and permissions (if multiple conflicting interpretations possible)
    - Security/compliance requirements (when legally/financially significant)
