@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkhumanoid_robotics_book=self.webpackChunkhumanoid_robotics_book||[]).push([[6366],{86366:(e,o,c)=>{c.d(o,{createArchitectureServices:()=>r.S});var r=c(38980);c(87960)}}]);
