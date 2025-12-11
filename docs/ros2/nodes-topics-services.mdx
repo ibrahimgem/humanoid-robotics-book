@@ -4,7 +4,64 @@ sidebar_position: 2
 description: "Understanding ROS 2 communication patterns: nodes, topics, services, and actions"
 ---
 
+import PersonalizeButton from '@site/src/components/PersonalizeButton';
+import TranslateButton from '@site/src/components/TranslateButton';
+
 # Nodes, Topics, and Services
+
+<div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+  <PersonalizeButton
+    chapterId="ros2-nodes-topics-services"
+    content={`# Nodes, Topics, and Services
+
+:::info Learning Objective
+After completing this chapter, you will understand the core communication patterns in ROS 2: nodes, topics, services, and actions. You will be able to implement publishers, subscribers, servers, and clients for effective robot communication.
+:::
+
+ROS 2 provides several communication patterns that allow nodes to exchange information. Understanding these patterns is crucial for developing effective robotic applications.
+
+## Nodes
+
+A node is an executable that uses ROS 2 to communicate with other nodes. Nodes are the fundamental building blocks of a ROS 2 system. Each node can perform specific functions and communicate with other nodes through topics, services, or actions.
+
+### Creating a Node
+
+\`\`\`python
+import rclpy
+from rclpy.node import Node
+
+class MinimalNode(Node):
+    def __init__(self):
+        super().__init__('minimal_publisher')
+        # Node initialization code here
+\`\`\``}
+   />
+  <TranslateButton
+    content={`# Nodes, Topics, and Services
+
+:::info Learning Objective
+After completing this chapter, you will understand the core communication patterns in ROS 2: nodes, topics, services, and actions. You will be able to implement publishers, subscribers, servers, and clients for effective robot communication.
+:::
+
+ROS 2 provides several communication patterns that allow nodes to exchange information. Understanding these patterns is crucial for developing effective robotic applications.
+
+## Nodes
+
+A node is an executable that uses ROS 2 to communicate with other nodes. Nodes are the fundamental building blocks of a ROS 2 system. Each node can perform specific functions and communicate with other nodes through topics, services, or actions.
+
+### Creating a Node
+
+\`\`\`python
+import rclpy
+from rclpy.node import Node
+
+class MinimalNode(Node):
+    def __init__(self):
+        super().__init__('minimal_publisher')
+        # Node initialization code here
+\`\`\``}
+   />
+</div>
 
 :::info Learning Objective
 After completing this chapter, you will understand the core communication patterns in ROS 2: nodes, topics, services, and actions. You will be able to implement publishers, subscribers, servers, and clients for effective robot communication.

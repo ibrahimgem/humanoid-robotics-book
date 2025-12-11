@@ -1,0 +1,218 @@
+openapi: 3.0.0
+info:
+  title: Authentication API for Humanoid Robotics Book Platform
+  description: API for user authentication, registration, and profile management
+  version: 1.0.0
+
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user with profile information
+      description: Creates a new user account and collects profile information for personalization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: User's email address
+                password:
+                  type: string
+                  format: password
+                  description: User's password (min 8 characters)
+                profile:
+                  type: object
+                  description: User profile information for personalization
+                  properties:
+                    software_experience:
+                      type: string
+                      enum: [beginner, intermediate, advanced]
+                      description: User's software experience level
+                    hardware_experience:
+                      type: string
+                      enum: [beginner, intermediate, advanced]
+                      description: User's hardware experience level
+                    experience_level:
+                      type: string
+                      enum: [beginner, intermediate, advanced]
+                      description: Overall experience level preference
+                    preferred_language:
+                      type: string
+                      default: "en"
+                      description: User's preferred language
+                    learning_goals:
+                      type: array
+                      items:
+                        type: string
+                      description: User's learning goals
+      responses:
+        '201':
+          description: User successfully registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  profile:
+                    $ref: '#/components/schemas/UserProfile'
+                  session_token:
+                    type: string
+                    description: JWT token for authentication
+        '400':
+          description: Invalid input data
+        '409':
+          description: User with email already exists
+
+  /auth/login:
+    post:
+      summary: Authenticate user and return session token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Successfully authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  session_token:
+                    type: string
+        '401':
+          description: Invalid credentials
+
+  /auth/profile:
+    get:
+      summary: Get current user's profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  profile:
+                    $ref: '#/components/schemas/UserProfile'
+    put:
+      summary: Update current user's profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfileUpdate'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        software_experience:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        hardware_experience:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        experience_level:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        preferred_language:
+          type: string
+          default: "en"
+        learning_goals:
+          type: array
+          items:
+            type: string
+        personalization_settings:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserProfileUpdate:
+      type: object
+      properties:
+        software_experience:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        hardware_experience:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        experience_level:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        preferred_language:
+          type: string
+        learning_goals:
+          type: array
+          items:
+            type: string
