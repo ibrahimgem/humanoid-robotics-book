@@ -132,6 +132,7 @@ class RAGService:
                 5. Maintain a beginner-friendly tone appropriate for robotics learners
                 """
             else:  # local mode
+                # Use the selected_text parameter that's passed to the method
                 prompt = f"""
                 You are an AI assistant for the Humanoid Robotics Book. Explain the selected text in response to the user's question.
 
@@ -203,7 +204,9 @@ class RAGService:
             Dictionary containing response, sources, and citations
         """
         # First, check if response is already cached
-        cached_response = response_cache.get_cached_response(query, session_id)
+        # Ensure session_id is a string when passed to cache
+        session_id_str = str(session_id) if isinstance(session_id, UUID) else session_id
+        cached_response = response_cache.get_cached_response(query, session_id_str)
         if cached_response:
             logger.info(f"Returning cached response for query: {query[:50]}...")
             # Still log the interaction to maintain session history
@@ -255,7 +258,7 @@ class RAGService:
             }
 
             # Cache the response for future queries
-            response_cache.cache_response(query, response_obj, session_id)
+            response_cache.cache_response(query, response_obj, session_id_str)
 
             # Log the interaction to the database
             await self._log_interaction(query, response_text, session_id, query_mode, selected_text)
@@ -289,8 +292,12 @@ class RAGService:
         try:
             db = next(get_db())
             try:
-                # Check if session exists, create if not
-                session_uuid = UUID(session_id)
+                # Check if session_id is already a UUID object or needs conversion
+                if isinstance(session_id, UUID):
+                    session_uuid = session_id
+                else:
+                    session_uuid = UUID(session_id)
+
                 session = db.query(ChatSession).filter(ChatSession.id == session_uuid).first()
                 if not session:
                     session = ChatSession(id=session_uuid)
@@ -345,14 +352,20 @@ class RAGService:
             db = next(get_db())
             try:
                 # Get the most recent user message with selected text from this session
+                # Check if session_id is already a UUID object or needs conversion
+                if isinstance(session_id, UUID):
+                    session_uuid = session_id
+                else:
+                    session_uuid = UUID(session_id)
+
                 last_selected_text_query = db.query(ChatLog).filter(
-                    ChatLog.session_id == UUID(session_id),
+                    ChatLog.session_id == session_uuid,
                     ChatLog.role == "user",
                     ChatLog.selected_text.isnot(None)
                 ).order_by(ChatLog.created_at.desc()).first()
 
                 last_query_mode_query = db.query(ChatLog).filter(
-                    ChatLog.session_id == UUID(session_id),
+                    ChatLog.session_id == session_uuid,
                     ChatLog.role == "user"
                 ).order_by(ChatLog.created_at.desc()).first()
 
@@ -393,7 +406,13 @@ class RAGService:
             try:
                 # This function would be used to track mode changes in session metadata
                 # For now, we'll just validate that the session exists
-                session = db.query(ChatSession).filter(ChatSession.id == UUID(session_id)).first()
+                # Check if session_id is already a UUID object or needs conversion
+                if isinstance(session_id, UUID):
+                    session_uuid = session_id
+                else:
+                    session_uuid = UUID(session_id)
+
+                session = db.query(ChatSession).filter(ChatSession.id == session_uuid).first()
                 if not session:
                     logger.warning(f"Session {session_id} does not exist")
                     return False

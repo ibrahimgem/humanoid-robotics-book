@@ -1,18 +1,15 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import BrowserOnly from '@docusaurus/BrowserOnly';
-import { useLocation } from '@docusaurus/router';
+import { AuthProvider } from '../contexts/AuthContext';
 
-// Import the chat widget component and its styles
+// Import the chat widget component
 import ChatWidgetComponent from '../components/ChatWidget';
-import '../components/ChatWidget/ChatWidget.css';
+import AuthModal from '../components/AuthModal';
 
 // The actual ChatWidget component implementation
 const ChatWidget = () => {
-  const location = useLocation();
-
-  // Don't show the chat widget on certain pages if needed
-  // For now, show it on all pages
-  const showChatWidget = true; // You can customize this logic based on path
+  // Show the chat widget on all pages (it will check for auth inside)
+  const showChatWidget = true;
 
   if (!showChatWidget) {
     return null;
@@ -27,11 +24,34 @@ const ChatWidget = () => {
 
 // Root component that wraps the entire Docusaurus app
 const Root = ({ children }) => {
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
+
+  useEffect(() => {
+    const handleOpenLoginModal = () => {
+      setAuthMode('login');
+      setShowAuthModal(true);
+    };
+
+    window.addEventListener('openLoginModal', handleOpenLoginModal);
+
+    return () => {
+      window.removeEventListener('openLoginModal', handleOpenLoginModal);
+    };
+  }, []);
+
   return (
-    <>
+    <AuthProvider>
       {children}
       <ChatWidget />
-    </>
+      {showAuthModal && (
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          mode={authMode}
+        />
+      )}
+    </AuthProvider>
   );
 };
 

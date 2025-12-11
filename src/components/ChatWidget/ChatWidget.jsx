@@ -1,309 +1,154 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import './ChatWidget.css';
 
 const ChatWidget = () => {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [queryMode, setQueryMode] = useState('global'); // 'global' or 'local'
-  const [selectedText, setSelectedText] = useState('');
   const [sessionId, setSessionId] = useState(() => {
-    // Generate or retrieve session ID
-    const savedSessionId = localStorage.getItem('chatbot-session-id');
+    // Generate a unique session ID or retrieve from localStorage
+    const savedSessionId = localStorage.getItem('chat_session_id');
     if (savedSessionId) {
       return savedSessionId;
     }
-    const newSessionId = 'chat-session-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem('chatbot-session-id', newSessionId);
+    const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem('chat_session_id', newSessionId);
     return newSessionId;
   });
 
+  // Show chat widget to all users, but with limited functionality for non-logged-in users
+  const isUserLoggedIn = !!user;
+
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
-  const chatWindowRef = useRef(null);
 
-  // Function to scroll to bottom of messages
-  const scrollToBottom = useCallback(() => {
+  const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
+  };
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     scrollToBottom();
-  }, [messages, scrollToBottom]);
+  }, [messages]);
 
-  // Get selected text from the page
-  useEffect(() => {
-    const handleSelection = () => {
-      const selectedText = window.getSelection().toString().trim();
-      if (selectedText) {
-        setSelectedText(selectedText);
-      }
-    };
-
-    document.addEventListener('mouseup', handleSelection);
-    return () => {
-      document.removeEventListener('mouseup', handleSelection);
-    };
-  }, []);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Toggle chat with Ctrl/Cmd + Shift + C
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
-        e.preventDefault();
-        setIsOpen(prev => !prev);
-        if (!isOpen && inputRef.current) {
-          setTimeout(() => inputRef.current.focus(), 100);
-        }
-      }
-
-      // Focus input when chat is open with Ctrl/Cmd + Shift + K
-      if (isOpen && (e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'K') {
-        e.preventDefault();
-        inputRef.current?.focus();
-      }
-
-      // Close chat with Escape key when open
-      if (isOpen && e.key === 'Escape') {
-        e.preventDefault();
-        setIsOpen(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen]);
-
-  // Accessibility: Manage focus and ARIA attributes
-  useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isOpen]);
-
-  // Function to send message to backend
   const sendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
 
-    // Add user message to chat
-    const userMessage = {
-      id: Date.now(),
-      text: inputValue,
-      sender: 'user',
-      timestamp: new Date().toISOString(),
-    };
+    // Check if user is logged in for full functionality
+    if (!isUserLoggedIn && messages.length === 0) {
+      // For first-time users who aren't logged in, show a welcome message with login prompt
+      const welcomeMessage = {
+        id: Date.now(),
+        text: "Welcome! I'm your AI assistant for Humanoid Robotics. To access personalized features and maintain your chat history, please log in. For now, I can still answer general questions about robotics!",
+        sender: 'bot',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, welcomeMessage]);
+    }
 
+    const userMessage = { id: Date.now() + 1000, text: inputValue, sender: 'user', timestamp: new Date() };
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
 
     try {
-      // Prepare the request payload
-      const requestBody = {
-        message: inputValue,
-        session_id: sessionId,
-        query_mode: queryMode,
-      };
-
-      // Include selected text if in local mode
-      if (queryMode === 'local' && selectedText) {
-        requestBody.selected_text = selectedText;
-      }
-
-      // Call the backend API
-      // Using a dynamic API base URL for flexibility
-      const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || window.chatbotConfig?.apiBaseUrl || 'http://localhost:8000';
-      const response = await fetch(`${API_BASE_URL}/chat/query`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      // Add bot response to chat
+      // Call the backend API to get the response
+      const apiService = await import('../../services/api.js');
+      const data = await apiService.default.sendQuery(inputValue, sessionId);
       const botMessage = {
         id: Date.now() + 1,
         text: data.response,
         sender: 'bot',
-        sources: data.sources || [],
-        citations: data.citations || [],
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(),
+        sources: data.sources || []
       };
-
       setMessages(prev => [...prev, botMessage]);
     } catch (error) {
       console.error('Error sending message:', error);
-
-      // Add error message to chat
       const errorMessage = {
         id: Date.now() + 1,
         text: 'Sorry, I encountered an error processing your request. Please try again.',
         sender: 'bot',
-        isError: true,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date()
       };
-
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle key press (Enter to send)
-  const handleKeyPress = (e) => {
+  const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
   };
 
-  // Toggle chat widget open/close
   const toggleChat = () => {
     setIsOpen(!isOpen);
     if (!isOpen && inputRef.current) {
-      setTimeout(() => inputRef.current.focus(), 100);
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
   };
 
-  // Switch query mode
-  const switchQueryMode = (mode) => {
-    setQueryMode(mode);
-  };
-
-  // Clear chat history
-  const clearChat = () => {
+  const startNewSession = () => {
     setMessages([]);
+    // Generate a new session ID
+    const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem('chat_session_id', newSessionId);
+    setSessionId(newSessionId);
   };
 
   return (
-    <div
-      className={`chat-widget ${isOpen ? 'open' : 'closed'}`}
-      aria-label="Book Assistant Chat"
-      role="complementary"
-    >
-      {/* Chat toggle button */}
-      {!isOpen && (
-        <button
-          className="chat-toggle-button"
-          onClick={toggleChat}
-          aria-label="Open chat assistant"
-          title="Open chat assistant (Ctrl+Shift+C)"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M21 4H3C2.44772 4 2 4.44772 2 5V16C2 16.5523 2.44772 17 3 17H7L9 21H16C16.3788 21 16.5988 20.7945 16.7239 20.6643C16.8439 20.5393 17.0182 20.4311 17.22 20.3455C17.2266 20.3428 17.2333 20.3401 17.24 20.3374L21.9953 18.2387C22.0728 18.2054 22.1453 18.1683 22.2121 18.1276C22.4929 17.954 22.6667 17.7333 22.6667 17.3333V5C22.6667 4.44772 22.22 4 21.6667 4H21Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M6 9H18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M6 12H14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-      )}
-
-      {/* Chat window */}
-      {isOpen && (
-        <div
-          className="chat-window"
-          ref={chatWindowRef}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Book Assistant Chat"
-          tabIndex={-1}
-        >
-          {/* Chat header */}
-          <div className="chat-header" role="banner">
-            <div className="chat-header-left">
-              <h3>Book Assistant</h3>
-              <div className="query-mode-selector" role="radiogroup" aria-label="Query mode">
+    <div className="chat-widget">
+      {isOpen ? (
+        <div className="chat-window">
+          <div className="chat-header">
+            <div className="chat-title">🤖 Robotics Assistant</div>
+            <div className="chat-controls">
+              {!isUserLoggedIn && (
                 <button
-                  className={queryMode === 'global' ? 'active' : ''}
-                  onClick={() => switchQueryMode('global')}
-                  title="Ask about the entire book"
-                  role="radio"
-                  aria-checked={queryMode === 'global'}
+                  onClick={() => {
+                    // Close the chat widget and trigger the login modal via a custom event
+                    setIsOpen(false);
+                    window.dispatchEvent(new CustomEvent('openLoginModal'));
+                  }}
+                  className="login-prompt-btn"
+                  title="Login to access personalized features"
                 >
-                  Global
+                  Login
                 </button>
-                <button
-                  className={queryMode === 'local' ? 'active' : ''}
-                  onClick={() => switchQueryMode('local')}
-                  title="Ask about selected text"
-                  disabled={!selectedText}
-                  role="radio"
-                  aria-checked={queryMode === 'local'}
-                >
-                  Local
-                </button>
-              </div>
-            </div>
-            <div className="chat-header-right">
-              <button
-                className="clear-chat-btn"
-                onClick={clearChat}
-                title="Clear chat history"
-                aria-label="Clear chat history"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M19 6L18.3995 5.44822C18.3995 5.44822 18.2375 5.2986 18.0111 5.16135C17.7847 5.0241 17.507 4.90719 17.194 4.81833L17.194 4.81833C16.3741 4.58435 15.48 4.58435 14.6601 4.81833L14.6601 4.81833C14.3471 4.90719 14.0694 5.0241 13.843 5.16135C13.6166 5.2986 13.4546 5.44822 13.4546 5.44822L13 6M5 6L5.60051 5.44822C5.60051 5.44822 5.7625 5.2986 5.98891 5.16135C6.21531 5.0241 6.49304 4.90719 6.80604 4.81833L6.80604 4.81833C7.62594 4.58435 8.52001 4.58435 9.33994 4.81833L9.33994 4.81833C9.65294 4.90719 9.93067 5.0241 10.1571 5.16135C10.3835 5.2986 10.5455 5.44822 10.5455 5.44822L11 6M15 10V16M9 10V16M19 6H5C3.89543 6 3 6.89543 3 8V16C3 17.1046 3.89543 18 5 18H19C20.1046 18 21 17.1046 21 16V8C21 6.89543 20.1046 6 19 6Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+              )}
+              <button onClick={startNewSession} className="new-session-btn" title="New Session">
+                🔄
               </button>
-              <button
-                className="close-chat-btn"
-                onClick={toggleChat}
-                aria-label="Close chat"
-                title="Close chat (Esc)"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M6 18L18 6M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+              <button onClick={toggleChat} className="close-btn">
+                ×
               </button>
             </div>
           </div>
-
-          {/* Chat messages */}
-          <div className="chat-messages" role="log" aria-live="polite">
+          <div className="chat-messages">
             {messages.length === 0 ? (
-              <div className="welcome-message" role="status" aria-live="polite">
-                <p>Hello! I'm your Humanoid Robotics Book assistant.</p>
-                <p>Ask me anything about the book content:</p>
-                <ul>
-                  <li>General questions about any book topic</li>
-                  <li>Specific questions about selected text</li>
-                </ul>
-                {selectedText && (
-                  <div className="selected-text-preview">
-                    <p><strong>Selected text:</strong> {selectedText.substring(0, 100)}{selectedText.length > 100 ? '...' : ''}</p>
-                  </div>
+              <div className="welcome-message">
+                <h3>Hello! I'm your AI assistant for Humanoid Robotics.</h3>
+                <p>Ask me anything about ROS 2, Gazebo, Unity, NVIDIA Isaac, VLA, or humanoid development!</p>
+                {!isUserLoggedIn && (
+                  <p style={{marginTop: '10px', fontSize: '13px', color: '#4b5563'}}>
+                    <em>Log in to access personalized features and maintain chat history.</em>
+                  </p>
                 )}
               </div>
             ) : (
               messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`message ${message.sender === 'user' ? 'user-message' : 'bot-message'}`}
-                  role="listitem"
-                  aria-label={`${message.sender === 'user' ? 'User' : 'Assistant'} message`}
-                >
+                <div key={message.id} className={`message ${message.sender}`}>
                   <div className="message-content">
-                    {message.sender === 'bot' && message.isError ? (
-                      <div className="error-message" role="alert">{message.text}</div>
-                    ) : (
-                      <div className="message-text">{message.text}</div>
-                    )}
-
-                    {message.sender === 'bot' && message.sources && message.sources.length > 0 && (
+                    <div className="message-text">{message.text}</div>
+                    {message.sources && message.sources.length > 0 && (
                       <div className="message-sources">
                         <details>
-                          <summary>Sources</summary>
+                          <summary>Sources:</summary>
                           <ul>
                             {message.sources.map((source, idx) => (
                               <li key={idx}>{source}</li>
@@ -312,81 +157,47 @@ const ChatWidget = () => {
                         </details>
                       </div>
                     )}
-
-                    {message.sender === 'bot' && message.citations && message.citations.length > 0 && (
-                      <div className="message-citations">
-                        <details>
-                          <summary>Citations</summary>
-                          <ul>
-                            {message.citations.map((citation, idx) => (
-                              <li key={idx}>
-                                <strong>{citation.section}:</strong> {citation.text}
-                              </li>
-                            ))}
-                          </ul>
-                        </details>
-                      </div>
-                    )}
-                  </div>
-                  <div className="message-timestamp" aria-label={`Sent at ${new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}>
-                    {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
               ))
             )}
             {isLoading && (
-              <div className="message bot-message" role="status" aria-label="Assistant is typing">
+              <div className="message bot">
                 <div className="message-content">
                   <div className="typing-indicator">
-                    <span aria-hidden="true"></span>
-                    <span aria-hidden="true"></span>
-                    <span aria-hidden="true"></span>
+                    <span></span>
+                    <span></span>
+                    <span></span>
                   </div>
                 </div>
               </div>
             )}
-            <div ref={messagesEndRef} aria-hidden="true" />
+            <div ref={messagesEndRef} />
           </div>
-
-          {/* Chat input */}
           <div className="chat-input-area">
-            {queryMode === 'local' && selectedText && (
-              <div className="selected-text-indicator" aria-label={`Asking about selected text: ${selectedText.substring(0, 50)}${selectedText.length > 50 ? '...' : ''}`}>
-                <small>Asking about: "{selectedText.substring(0, 50)}{selectedText.length > 50 ? '...' : ''}"</small>
-              </div>
-            )}
-            <div className="input-container">
-              <textarea
-                ref={inputRef}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder={queryMode === 'local' && selectedText ? "Ask about the selected text..." : "Ask about the book content..."}
-                disabled={isLoading}
-                rows={1}
-                aria-label={queryMode === 'local' && selectedText ? "Ask about the selected text" : "Ask about the book content"}
-                role="textbox"
-                aria-multiline="true"
-              />
-              <button
-                onClick={sendMessage}
-                disabled={!inputValue.trim() || isLoading}
-                className="send-button"
-                aria-label="Send message"
-              >
-                {isLoading ? (
-                  <svg className="loading-spinner" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2V6M12 18V22M6 12H2M22 12H18M19.0784 19.0784L16.25 16.25M19.0784 4.99994L16.25 7.82837M4.92157 19.0784L7.75001 16.25M4.92157 4.99994L7.75001 7.82837" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M22 2L11 13M22 2L15 22L11 13M11 13L2 9L22 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                )}
-              </button>
-            </div>
+            <textarea
+              ref={inputRef}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask about humanoid robotics..."
+              className="chat-input"
+              rows="1"
+              disabled={isLoading}
+            />
+            <button
+              onClick={sendMessage}
+              className={`send-button ${isLoading ? 'loading' : ''}`}
+              disabled={!inputValue.trim() || isLoading}
+            >
+              {isLoading ? 'Sending...' : '➤'}
+            </button>
           </div>
         </div>
+      ) : (
+        <button className="chat-toggle" onClick={toggleChat}>
+          <span>🤖</span>
+        </button>
       )}
     </div>
   );

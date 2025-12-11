@@ -2,13 +2,20 @@
 Main application entry point for the RAG Chatbot API.
 """
 import os
+from dotenv import load_dotenv
 import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
+# Load environment variables from .env file
+load_dotenv()
+
 from src.api.chat_endpoints import router as chat_router
+from src.api.auth import router as auth_router
+from src.api.personalize import router as personalize_router
+from src.api.translation import router as translation_router
 from src.database.connection import init_db
 from src.services.content_sync_service import content_sync_service
 
@@ -60,6 +67,15 @@ app.add_middleware(
 
 # Include the chat API routes
 app.include_router(chat_router)
+
+# Include the auth API routes
+app.include_router(auth_router)
+
+# Include the personalization API routes
+app.include_router(personalize_router)
+
+# Include the translation API routes
+app.include_router(translation_router)
 
 @app.get("/")
 async def root():

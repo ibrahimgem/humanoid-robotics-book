@@ -28,7 +28,11 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Import models to ensure they're registered with SQLAlchemy
-from src.models.chat_models import Base, ChatSession, ChatLog
+from src.models.chat_models import ChatSession, ChatLog
+from src.models.user import User, UserProfile
+
+# Get the Base from the user models (which should be the same Base)
+from src.models.user import Base
 
 def init_db():
     """

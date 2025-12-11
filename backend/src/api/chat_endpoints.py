@@ -66,9 +66,12 @@ async def chat_query(request: ChatQueryRequest):
             # Validate and convert session_id to UUID format
             try:
                 session_uuid = UUID(request.session_id)
+                # Convert to string for consistent use throughout the function
+                session_id_str = str(session_uuid)
             except ValueError:
                 # If session_id is not a valid UUID, generate a new one but log the original for debugging
-                session_uuid = UUID(uuid.uuid4())
+                session_uuid = uuid.uuid4()  # uuid.uuid4() already returns a UUID object
+                session_id_str = str(session_uuid)
                 print(f"Invalid UUID format for session_id: {request.session_id}. Generated new UUID: {session_uuid}")
 
             # Check if session exists, create if not
@@ -93,7 +96,7 @@ async def chat_query(request: ChatQueryRequest):
             # Process the query using the RAG service
             response = await rag_service.process_query(
                 query=request.message,
-                session_id=str(session_uuid),  # Pass the UUID as string
+                session_id=session_id_str,  # Pass the UUID as string
                 query_mode=request.query_mode,
                 selected_text=request.selected_text
             )
