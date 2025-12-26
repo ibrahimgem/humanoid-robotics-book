@@ -3,6 +3,9 @@ title: Humanoid Robotics Book
 slug: /
 ---
 
+import BrowserOnly from '@docusaurus/BrowserOnly';
 import Homepage from '@site/src/components/Homepage/Homepage';
 
-<Homepage />
+<BrowserOnly>
+  {() => <Homepage />}
+</BrowserOnly>

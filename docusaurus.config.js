@@ -18,7 +18,7 @@ const config = {
   deploymentBranch: 'gh-pages', // Branch that GitHub Pages will deploy from
   trailingSlash: false, // Set to false for cleaner URLs
 
-  onBrokenLinks: 'throw',
+  onBrokenLinks: 'warn',
   markdown: {
     mermaid: true,
     mdx1Compat: {

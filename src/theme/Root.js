@@ -1,12 +1,17 @@
 import React from 'react';
-import ChatWidgetWrapper from './ChatWidgetWrapper';
+import BrowserOnly from '@docusaurus/BrowserOnly';
 
 // Root component that wraps the entire Docusaurus app
 const Root = ({ children }) => {
   return (
     <div className="humanoid-robotics-root">
       {children}
-      <ChatWidgetWrapper />
+      <BrowserOnly>
+        {() => {
+          const ChatWidgetWrapper = require('./ChatWidgetWrapper').default;
+          return <ChatWidgetWrapper />;
+        }}
+      </BrowserOnly>
     </div>
   );
 };
