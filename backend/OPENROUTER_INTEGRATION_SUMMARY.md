@@ -28,7 +28,7 @@ Successfully integrated OpenRouter API as the primary AI service for the RAG AI 
 
 3. **Environment Configuration**
    - Added `OPENROUTER_API_KEY` to `.env` file
-   - API Key: `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`
+   - API Key: `sk-or-v1-xxxxxxxxxxxxxxx`
    - Maintained backward compatibility with Gemini API key
 
 4. **Created Test Script** (`backend/test_openrouter.py`)
