@@ -1,37 +1,469 @@
-/**
- * Copyright (c) 2017-present, Facebook, Inc.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
+/* Custom CSS for Humanoid Robotics Book - Using Docusaurus Stock Light/Dark Mode */
 
-/**
- * Any CSS included here will be global. The classic template
- * bundles Infima by default. Infima is a CSS framework designed to
- * work well for content-centric websites.
- */
-
-/* You can override the default Infima variables here. */
+/* Custom color palette that works with Docusaurus stock theme */
 :root {
-  --ifm-color-primary: #2e8555;
-  --ifm-color-primary-dark: #29784c;
-  --ifm-color-primary-darker: #277148;
-  --ifm-color-primary-darkest: #205d3b;
-  --ifm-color-primary-light: #33925d;
-  --ifm-color-primary-lighter: #359962;
-  --ifm-color-primary-lightest: #3cad6e;
+  --ifm-color-primary: #2563eb;
+  --ifm-color-primary-dark: #1d4ed8;
+  --ifm-color-primary-darker: #1e40af;
+  --ifm-color-primary-darkest: #1e3a8a;
+  --ifm-color-primary-light: #3b82f6;
+  --ifm-color-primary-lighter: #60a5fa;
+  --ifm-color-primary-lightest: #93c5fd;
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  --ifm-hero-background-color: var(--ifm-color-emphasis-900);
+  --ifm-card-background-color: var(--ifm-background-surface-color);
+  --ifm-card-hover-background-color: var(--ifm-background-surface-color);
+  --ifm-button-radius: 12px;
+  --ifm-button-padding-vertical: 16px;
+  --ifm-button-padding-horizontal: 32px;
+  --ifm-button-font-size: 1rem;
+  --ifm-button-font-weight: 600;
+  --ifm-font-size-base: 16px;
+  --ifm-line-height-base: 1.6;
+  --ifm-spacing-rem: 1rem;
+  --ifm-paragraph-margin-bottom: var(--ifm-spacing-rem);
+  --ifm-heading-margin-bottom: calc(var(--ifm-spacing-rem) * 0.5);
+  --ifm-heading-font-weight: 700;
+  --ifm-heading-line-height: 1.25;
+  --ifm-h1-font-size: 3rem;
+  --ifm-h2-font-size: 2.25rem;
+  --ifm-h3-font-size: 1.5rem;
+  --ifm-h4-font-size: 1.25rem;
+  --ifm-h5-font-size: 1.1rem;
+  --ifm-h6-font-size: 1rem;
+  --ifm-grid-color: rgba(255, 255, 255, 0.05);
+  --ifm-grid-color-light: rgba(0, 0, 0, 0.05);
 }
 
-/* For readability concerns, you should choose a lighter palette in dark mode. */
+/* Dark mode - use Docusaurus stock dark theme variables */
 [data-theme='dark'] {
-  --ifm-color-primary: #25c2a0;
-  --ifm-color-primary-dark: #21af90;
-  --ifm-color-primary-darker: #1fa588;
-  --ifm-color-primary-darkest: #1a8870;
-  --ifm-color-primary-light: #29d5b0;
-  --ifm-color-primary-lighter: #32d8b4;
-  --ifm-color-primary-lightest: #4fddbf;
+  --ifm-color-primary: #3b82f6;
+  --ifm-color-primary-dark: #2563eb;
+  --ifm-color-primary-darker: #1d4ed8;
+  --ifm-color-primary-darkest: #1e3a8a;
+  --ifm-color-primary-light: #60a5fa;
+  --ifm-color-primary-lighter: #93c5fd;
+  --ifm-color-primary-lightest: #bfdbfe;
+  --ifm-hero-background-color: var(--ifm-color-emphasis-900);
+  --ifm-grid-color: rgba(255, 255, 255, 0.05);
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+/* Enhanced typography */
+.hero--primary {
+  background: var(--ifm-background-color);
+  color: var(--ifm-color-content);
+  padding: 5rem 0;
+  position: relative;
+  overflow: hidden;
+  min-height: 600px;
+}
+
+.hero__title {
+  font-size: var(--ifm-h1-font-size);
+  font-weight: var(--ifm-heading-font-weight);
+  line-height: var(--ifm-heading-line-height);
+  margin-bottom: 1rem;
+  letter-spacing: -0.025em;
+  position: relative;
+  z-index: 2;
+}
+
+.hero__subtitle {
+  font-size: 1.25rem;
+  opacity: 0.9;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+  position: relative;
+  z-index: 2;
+}
+
+/* Enhanced buttons */
+.button {
+  border-radius: var(--ifm-button-radius);
+  padding: var(--ifm-button-padding-vertical) var(--ifm-button-padding-horizontal);
+  font-size: var(--ifm-button-font-size);
+  font-weight: var(--ifm-button-font-weight);
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.button--primary {
+  background: linear-gradient(135deg, var(--ifm-color-primary), var(--ifm-color-primary-light));
+  color: var(--ifm-button-color);
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);
+}
+
+.button--primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(37, 99, 235, 0.3);
+  color: var(--ifm-button-color);
+}
+
+.button--secondary {
+  background: var(--ifm-button-background-color);
+  color: var(--ifm-button-color);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.button--secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  color: var(--ifm-button-color);
+}
+
+.button--outline {
+  background: transparent;
+  border: 2px solid var(--ifm-color-emphasis-500);
+  color: var(--ifm-color-emphasis-500);
+}
+
+.button--outline:hover {
+  background: var(--ifm-color-emphasis-100);
+  color: var(--ifm-color-emphasis-900);
+}
+
+/* Enhanced card styling for content sections */
+.card {
+  border: none;
+  border-radius: 2rem;
+  overflow: hidden;
+  background: var(--ifm-background-surface-color);
+  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+  position: relative;
+  z-index: 1;
+}
+
+.card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  background: var(--ifm-background-surface-color);
+}
+
+.card__header {
+  padding: 1.5rem 1.5rem 0.5rem;
+}
+
+.card__body {
+  padding: 0.5rem 1.5rem 1.5rem;
+}
+
+.card__header h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--ifm-heading-color);
+}
+
+.card__body p {
+  margin: 0;
+  color: var(--ifm-color-emphasis-700);
+  line-height: 1.6;
+}
+
+/* Enhanced code blocks */
+.code-block {
+  border-radius: 1rem;
+  margin: 1.5rem 0;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--ifm-color-emphasis-200);
+}
+
+/* Enhanced admonitions */
+.admonition {
+  border-radius: 1rem;
+  border-left: 4px solid;
+  margin: 1.5rem 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.admonition-note {
+  border-left-color: var(--ifm-color-info);
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+.admonition-tip {
+  border-left-color: var(--ifm-color-success);
+  background-color: rgba(34, 197, 94, 0.05);
+}
+
+.admonition-caution {
+  border-left-color: var(--ifm-color-warning);
+  background-color: rgba(251, 191, 36, 0.05);
+}
+
+.admonition-danger {
+  border-left-color: var(--ifm-color-danger);
+  background-color: rgba(239, 68, 68, 0.05);
+}
+
+/* Enhanced navigation sidebar */
+.menu {
+  font-size: 0.95rem;
+}
+
+.menu__list-item-collapsible .menu__link--sublist {
+  font-weight: 600;
+  color: var(--ifm-color-emphasis-800);
+}
+
+.menu__link {
+  border-radius: 12px;
+  margin: 2px 0;
+  padding: 0.75rem 1rem;
+}
+
+.menu__link--active {
+  background-color: var(--ifm-menu-color-background-active);
+  font-weight: 600;
+}
+
+/* Footer enhancements */
+.footer {
+  background: var(--ifm-background-surface-color);
+  color: var(--ifm-color-content);
+  padding: 4rem 0 3rem;
+}
+
+.footer__title {
+  color: var(--ifm-color-content);
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.footer__link-item {
+  color: var(--ifm-color-emphasis-500);
+  transition: color 0.2s ease;
+}
+
+.footer__link-item:hover {
+  color: var(--ifm-color-primary);
+}
+
+/* Enhanced table styling */
+.table-wrapper {
+  overflow: auto;
+  border-radius: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 1rem 1.25rem;
+  text-align: left;
+}
+
+th {
+  background-color: var(--ifm-table-head-background);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+tr:nth-child(even) {
+  background-color: var(--ifm-table-stripe-background);
+}
+
+tr:hover {
+  background-color: var(--ifm-table-hover-background);
+}
+
+/* Enhanced image styling */
+img {
+  border-radius: 1rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  max-width: 100%;
+  height: auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 996px) {
+  .hero__title {
+    font-size: 2.5rem;
+  }
+
+  .hero__subtitle {
+    font-size: 1.1rem;
+  }
+
+  .hero--primary {
+    padding: 3rem 0;
+  }
+
+  .button {
+    padding: 12px 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero__title {
+    font-size: 2rem;
+  }
+
+  .hero__subtitle {
+    font-size: 1rem;
+  }
+
+  .hero--primary {
+    padding: 2rem 0;
+  }
+
+  .card__header h3 {
+    font-size: 1.1rem;
+  }
+
+  .card__body p {
+    font-size: 0.9rem;
+  }
+}
+
+/* Custom styling for robotics diagrams */
+.robotics-diagram {
+  background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+  border-radius: 1.5rem;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+/* Enhanced search bar */
+.navbar__search-input {
+  border-radius: 24px;
+  padding: 10px 16px;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  font-size: 0.9rem;
+}
+
+/* Custom styling for code blocks */
+.prism-code {
+  border-radius: 1rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+/* Enhanced container spacing */
+.container {
+  padding: 0 1.5rem;
+  position: relative;
+  z-index: 2;
+}
+
+.padding-vert--lg {
+  padding-top: 3rem;
+  padding-bottom: 3rem;
+}
+
+.margin-bottom--lg {
+  margin-bottom: 2rem;
+}
+
+/* Smooth transitions for interactive elements */
+* {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+/* Enhanced list styling */
+ol li {
+  margin-bottom: 1rem;
+  line-height: 1.7;
+}
+
+/* Grid background specific styles */
+.grid-canvas-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.grid-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Section backgrounds for consistency */
+.section-dark {
+  background: var(--ifm-background-color) !important;
+}
+
+.section-light {
+  background: var(--ifm-background-surface-color) !important;
+}
+
+/* Ensure text contrast in different sections */
+.section-dark h2,
+.section-dark h3,
+.section-dark p {
+  color: var(--ifm-color-content);
+}
+
+.section-light h2,
+.section-light h3 {
+  color: var(--ifm-color-content);
+}
+
+.section-light p {
+  color: var(--ifm-color-content-secondary);
+}
+
+/* Specific overrides for hero__title in different sections */
+.section-light .hero__title {
+  color: var(--ifm-heading-color);
+}
+
+/* Ensure card content has proper contrast */
+.section-light .card h3 {
+  color: var(--ifm-heading-color);
+}
+
+.section-light .card p {
+  color: var(--ifm-color-content-secondary);
+}
+
+/* Ensure card content in dark sections has proper contrast */
+.section-dark .card h2,
+.section-dark .card h3 {
+  color: var(--ifm-heading-color);
+}
+
+.section-dark .card p {
+  color: var(--ifm-color-content-secondary);
+}
+
+/* Ensure hero__title in dark section cards has proper contrast */
+.section-dark .card .hero__title {
+  color: var(--ifm-heading-color);
+}
+
+/* Homepage-scoped styles using Docusaurus stock theme */
+.homepage {
+  /* Use default Docusaurus styling - no overrides needed */
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .hero--primary {
+    background: var(--ifm-hero-background-color);
+  }
 }

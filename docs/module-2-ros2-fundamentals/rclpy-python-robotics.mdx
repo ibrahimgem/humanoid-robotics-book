@@ -1,0 +1,627 @@
+---
+sidebar_position: 8
+title: Chapter 2.3 - rclpy and Python Robotics
+description: Python Programming for ROS 2 Robotics
+---
+
+# Chapter 2.3: rclpy and Python Robotics
+
+## Goal
+Develop proficiency in rclpy for implementing robotic applications in Python.
+
+## Learning Outcomes
+After completing this chapter, students will create functional ROS 2 nodes using Python with proper message handling.
+
+## Introduction
+
+rclpy is the Python client library for ROS 2, providing Python bindings for the ROS 2 client library (rcl). It allows Python developers to create ROS 2 nodes, publish and subscribe to topics, provide and use services, and create action servers and clients. This chapter covers the essential concepts and techniques for developing robotic applications using rclpy.
+
+## Setting Up rclpy
+
+Before using rclpy, ensure you have a properly configured ROS 2 environment:
+
+```bash
+source /opt/ros/humble/setup.bash  # or your ROS 2 distribution
+```
+
+### Installation and Import
+
+```python
+import rclpy
+from rclpy.node import Node
+```
+
+## Basic Node Structure
+
+Every ROS 2 node built with rclpy follows the same basic structure:
+
+```python
+import rclpy
+from rclpy.node import Node
+
+class MyNode(Node):
+    def __init__(self):
+        super().__init__('node_name')
+        # Initialize node components here
+        self.get_logger().info('Node initialized')
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = MyNode()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+## Publishers and Subscribers
+
+### Creating a Publisher
+
+```python
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+class MinimalPublisher(Node):
+    def __init__(self):
+        super().__init__('minimal_publisher')
+        self.publisher = self.create_publisher(String, 'topic_name', 10)
+        timer_period = 0.5  # seconds
+        self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.i = 0
+
+    def timer_callback(self):
+        msg = String()
+        msg.data = f'Hello World: {self.i}'
+        self.publisher.publish(msg)
+        self.get_logger().info(f'Publishing: "{msg.data}"')
+        self.i += 1
+```
+
+### Creating a Subscriber
+
+```python
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+class MinimalSubscriber(Node):
+    def __init__(self):
+        super().__init__('minimal_subscriber')
+        self.subscription = self.create_subscription(
+            String,
+            'topic_name',
+            self.listener_callback,
+            10)
+        self.subscription  # prevent unused variable warning
+
+    def listener_callback(self, msg):
+        self.get_logger().info(f'I heard: "{msg.data}"')
+```
+
+### Quality of Service (QoS) Settings
+
+```python
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
+
+# Create a custom QoS profile
+qos_profile = QoSProfile(
+    depth=10,
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.VOLATILE
+)
+
+# Use with publisher
+publisher = self.create_publisher(String, 'topic_name', qos_profile)
+
+# Use with subscriber
+subscription = self.create_subscription(
+    String,
+    'topic_name',
+    self.listener_callback,
+    qos_profile
+)
+```
+
+## Services
+
+### Service Server
+
+```python
+import rclpy
+from rclpy.node import Node
+from example_interfaces.srv import AddTwoInts
+
+class MinimalService(Node):
+    def __init__(self):
+        super().__init__('minimal_service')
+        self.srv = self.create_service(
+            AddTwoInts,
+            'add_two_ints',
+            self.add_two_ints_callback
+        )
+
+    def add_two_ints_callback(self, request, response):
+        response.sum = request.a + request.b
+        self.get_logger().info(f'Request received: {request.a} + {request.b}')
+        return response
+```
+
+### Service Client
+
+```python
+import rclpy
+from rclpy.node import Node
+from example_interfaces.srv import AddTwoInts
+from rclpy.qos import QoSProfile
+
+class MinimalClient(Node):
+    def __init__(self):
+        super().__init__('minimal_client')
+        self.cli = self.create_client(AddTwoInts, 'add_two_ints')
+
+        # Wait for service to be available
+        while not self.cli.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Service not available, waiting again...')
+
+        self.request = AddTwoInts.Request()
+
+    def send_request(self, a, b):
+        self.request.a = a
+        self.request.b = b
+
+        # Call service asynchronously
+        future = self.cli.call_async(self.request)
+        return future
+```
+
+## Actions
+
+### Action Server
+
+```python
+import rclpy
+from rclpy.action import ActionServer, CancelResponse, GoalResponse
+from rclpy.node import Node
+from example_interfaces.action import Fibonacci
+
+class FibonacciActionServer(Node):
+    def __init__(self):
+        super().__init__('fibonacci_action_server')
+        self._action_server = ActionServer(
+            self,
+            Fibonacci,
+            'fibonacci',
+            execute_callback=self.execute_callback,
+            goal_callback=self.goal_callback,
+            cancel_callback=self.cancel_callback
+        )
+
+    def goal_callback(self, goal_request):
+        self.get_logger().info('Received goal request')
+        return GoalResponse.ACCEPT
+
+    def cancel_callback(self, goal_handle):
+        self.get_logger().info('Received cancel request')
+        return CancelResponse.ACCEPT
+
+    def execute_callback(self, goal_handle):
+        self.get_logger().info('Executing goal...')
+
+        feedback_msg = Fibonacci.Feedback()
+        feedback_msg.sequence = [0, 1]
+
+        for i in range(1, goal_handle.request.order):
+            # Check if cancel was requested
+            if goal_handle.is_cancel_requested:
+                goal_handle.canceled()
+                self.get_logger().info('Goal canceled')
+                return Fibonacci.Result()
+
+            feedback_msg.sequence.append(
+                feedback_msg.sequence[i] + feedback_msg.sequence[i-1])
+
+            # Publish feedback
+            goal_handle.publish_feedback(feedback_msg)
+
+            # Sleep to simulate work
+            time.sleep(1)
+
+        goal_handle.succeed()
+        result = Fibonacci.Result()
+        result.sequence = feedback_msg.sequence
+        self.get_logger().info(f'Returning result: {result.sequence}')
+        return result
+```
+
+### Action Client
+
+```python
+import rclpy
+from rclpy.action import ActionClient
+from rclpy.node import Node
+from example_interfaces.action import Fibonacci
+
+class FibonacciActionClient(Node):
+    def __init__(self):
+        super().__init__('fibonacci_action_client')
+        self._action_client = ActionClient(
+            self,
+            Fibonacci,
+            'fibonacci'
+        )
+
+    def send_goal(self, order):
+        goal_msg = Fibonacci.Goal()
+        goal_msg.order = order
+
+        self._action_client.wait_for_server()
+        future = self._action_client.send_goal_async(
+            goal_msg,
+            feedback_callback=self.feedback_callback
+        )
+
+        future.add_done_callback(self.goal_response_callback)
+        return future
+
+    def goal_response_callback(self, future):
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.get_logger().info('Goal rejected')
+            return
+
+        self.get_logger().info('Goal accepted')
+        result_future = goal_handle.get_result_async()
+        result_future.add_done_callback(self.get_result_callback)
+
+    def feedback_callback(self, feedback_msg):
+        feedback = feedback_msg.feedback
+        self.get_logger().info(f'Received feedback: {feedback.sequence}')
+
+    def get_result_callback(self, future):
+        result = future.result().result
+        self.get_logger().info(f'Result: {result.sequence}')
+```
+
+## Parameters
+
+### Declaring and Using Parameters
+
+```python
+import rclpy
+from rclpy.node import Node
+
+class ParameterNode(Node):
+    def __init__(self):
+        super().__init__('parameter_node')
+
+        # Declare parameters with default values
+        self.declare_parameter('param1', 'default_value')
+        self.declare_parameter('param2', 42)
+        self.declare_parameter('param3', 3.14)
+
+        # Get parameter values
+        param1_value = self.get_parameter('param1').value
+        param2_value = self.get_parameter('param2').value
+        param3_value = self.get_parameter('param3').value
+
+        self.get_logger().info(f'param1: {param1_value}')
+        self.get_logger().info(f'param2: {param2_value}')
+        self.get_logger().info(f'param3: {param3_value}')
+
+        # Set parameters programmatically
+        self.set_parameters([rclpy.parameter.Parameter('param1', value='new_value')])
+```
+
+### Parameter Callbacks
+
+```python
+from rclpy.parameter import Parameter
+
+def parameter_callback(self, parameters):
+    for param in parameters:
+        if param.name == 'my_param' and param.type_ == Parameter.Type.STRING:
+            self.get_logger().info(f'Parameter {param.name} changed to {param.value}')
+    return SetParametersResult(successful=True)
+
+# Register the callback
+self.add_on_set_parameters_callback(self.parameter_callback)
+```
+
+## Timers
+
+Timers allow you to execute code at regular intervals:
+
+```python
+import rclpy
+from rclpy.node import Node
+
+class TimerNode(Node):
+    def __init__(self):
+        super().__init__('timer_node')
+
+        # Create a timer that calls a callback every 0.5 seconds
+        timer_period = 0.5  # seconds
+        self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.counter = 0
+
+    def timer_callback(self):
+        self.get_logger().info(f'Timer callback: {self.counter}')
+        self.counter += 1
+```
+
+## Transformations (TF2)
+
+TF2 is ROS's system for tracking coordinate frame transformations:
+
+```python
+import rclpy
+from rclpy.node import Node
+from tf2_ros import TransformBroadcaster
+from geometry_msgs.msg import TransformStamped
+
+class FramePublisher(Node):
+    def __init__(self):
+        super().__init__('frame_publisher')
+        self.tf_broadcaster = TransformBroadcaster(self)
+
+        # Create a timer to broadcast transforms
+        self.timer = self.create_timer(0.1, self.broadcast_transform)
+
+    def broadcast_transform(self):
+        t = TransformStamped()
+
+        t.header.stamp = self.get_clock().now().to_msg()
+        t.header.frame_id = 'base_link'
+        t.child_frame_id = 'laser_frame'
+
+        t.transform.translation.x = 0.1
+        t.transform.translation.y = 0.0
+        t.transform.translation.z = 0.2
+        t.transform.rotation.x = 0.0
+        t.transform.rotation.y = 0.0
+        t.transform.rotation.z = 0.0
+        t.transform.rotation.w = 1.0
+
+        self.tf_broadcaster.sendTransform(t)
+```
+
+## Advanced rclpy Concepts
+
+### Custom Message Types
+
+To use custom messages, first define them in a package:
+
+```python
+# In your node
+from my_robot_msgs.msg import JointStateExtended
+
+class CustomMessageNode(Node):
+    def __init__(self):
+        super().__init__('custom_message_node')
+        self.publisher = self.create_publisher(JointStateExtended, 'joint_states_extended', 10)
+
+    def publish_custom_message(self):
+        msg = JointStateExtended()
+        msg.name = ['joint1', 'joint2', 'joint3']
+        msg.position = [0.1, 0.2, 0.3]
+        msg.velocity = [0.0, 0.0, 0.0]
+        msg.effort = [0.0, 0.0, 0.0]
+        msg.temperature = [25.0, 26.0, 24.5]  # Additional field
+
+        self.publisher.publish(msg)
+```
+
+### Lifecycle Nodes
+
+Lifecycle nodes provide better control over node states:
+
+```python
+from lifecycle_msgs.msg import Transition
+from lifecycle_msgs.srv import ChangeState
+from rclpy.lifecycle import LifecycleNode, TransitionCallbackReturn
+
+class LifecycleTestNode(LifecycleNode):
+    def __init__(self):
+        super().__init__('lifecycle_test_node')
+        self.get_logger().info('Created lifecycle test node')
+
+    def on_configure(self, state):
+        self.get_logger().info('Configuring lifecycle test node')
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_activate(self, state):
+        self.get_logger().info('Activating lifecycle test node')
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_deactivate(self, state):
+        self.get_logger().info('Deactivating lifecycle test node')
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_cleanup(self, state):
+        self.get_logger().info('Cleaning up lifecycle test node')
+        return TransitionCallbackReturn.SUCCESS
+```
+
+## Error Handling and Logging
+
+### Proper Error Handling
+
+```python
+import rclpy
+from rclpy.node import Node
+from rclpy.exceptions import ParameterNotDeclaredException
+
+class ErrorHandlingNode(Node):
+    def __init__(self):
+        super().__init__('error_handling_node')
+
+        # Safe parameter access
+        try:
+            param_value = self.get_parameter('my_param').value
+        except ParameterNotDeclaredException:
+            self.get_logger().warn('Parameter not declared, using default')
+            param_value = 'default'
+
+        # Safe subscription
+        try:
+            self.subscription = self.create_subscription(
+                String,
+                'topic',
+                self.callback,
+                10
+            )
+        except Exception as e:
+            self.get_logger().error(f'Failed to create subscription: {e}')
+```
+
+### Logging Levels
+
+```python
+# Different logging levels
+self.get_logger().debug('Debug message')
+self.get_logger().info('Info message')
+self.get_logger().warn('Warning message')
+self.get_logger().error('Error message')
+self.get_logger().fatal('Fatal message')
+```
+
+## rclpy for Humanoid Robotics
+
+### Joint State Publisher
+
+```python
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import JointState
+from std_msgs.msg import Header
+
+class JointStatePublisher(Node):
+    def __init__(self):
+        super().__init__('joint_state_publisher')
+        self.publisher = self.create_publisher(JointState, 'joint_states', 10)
+
+        # Timer for publishing joint states
+        self.timer = self.create_timer(0.05, self.publish_joint_states)  # 20 Hz
+
+        # Initialize joint positions
+        self.joint_names = [
+            'left_hip_joint', 'left_knee_joint', 'left_ankle_joint',
+            'right_hip_joint', 'right_knee_joint', 'right_ankle_joint',
+            'left_shoulder_joint', 'left_elbow_joint',
+            'right_shoulder_joint', 'right_elbow_joint'
+        ]
+        self.joint_positions = [0.0] * len(self.joint_names)
+
+    def publish_joint_states(self):
+        msg = JointState()
+        msg.header = Header()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = 'base_link'
+
+        msg.name = self.joint_names
+        msg.position = self.joint_positions
+        msg.velocity = [0.0] * len(self.joint_names)
+        msg.effort = [0.0] * len(self.joint_names)
+
+        self.publisher.publish(msg)
+```
+
+### Robot Control Interface
+
+```python
+import rclpy
+from rclpy.node import Node
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+from control_msgs.msg import JointTrajectoryControllerState
+
+class RobotController(Node):
+    def __init__(self):
+        super().__init__('robot_controller')
+
+        # Publishers for commanding joints
+        self.command_publisher = self.create_publisher(
+            JointTrajectory,
+            '/joint_trajectory_controller/joint_trajectory',
+            10
+        )
+
+        # Subscribers for feedback
+        self.state_subscriber = self.create_subscription(
+            JointTrajectoryControllerState,
+            '/joint_trajectory_controller/state',
+            self.state_callback,
+            10
+        )
+
+        # Service clients for additional control
+        self.trajectory_client = self.create_client(
+            FollowJointTrajectory,
+            '/joint_trajectory_controller/follow_joint_trajectory'
+        )
+
+    def send_trajectory_command(self, joint_names, positions, velocities=None, time_from_start=1.0):
+        traj = JointTrajectory()
+        traj.joint_names = joint_names
+
+        point = JointTrajectoryPoint()
+        point.positions = positions
+        if velocities:
+            point.velocities = velocities
+
+        # Set time from start (in seconds)
+        point.time_from_start.sec = int(time_from_start)
+        point.time_from_start.nanosec = int((time_from_start % 1) * 1e9)
+
+        traj.points = [point]
+
+        self.command_publisher.publish(traj)
+
+    def state_callback(self, msg):
+        # Process feedback from the controller
+        self.get_logger().debug(f'Received feedback for joints: {msg.joint_names}')
+```
+
+## Best Practices
+
+### Node Organization
+
+- Keep nodes focused on a single responsibility
+- Use appropriate QoS settings for different data types
+- Implement proper error handling and logging
+- Use meaningful names for topics, services, and actions
+
+### Performance Considerations
+
+- Choose appropriate timer frequencies
+- Use appropriate message queue sizes
+- Consider the impact of logging on performance
+- Use asynchronous operations when possible
+
+### Code Structure
+
+- Organize nodes in separate classes
+- Use constants for magic numbers and strings
+- Follow Python coding standards (PEP 8)
+- Document your code properly
+
+## Summary
+
+rclpy provides a powerful interface for developing ROS 2 nodes in Python. Understanding publishers, subscribers, services, actions, and parameters is essential for creating robust robotic applications. The examples in this chapter provide a foundation for developing more complex humanoid robotics applications using Python.
+
+## Exercises
+
+1. Create a joint state publisher for a humanoid robot with at least 12 joints
+2. Implement a service that calculates forward kinematics for a humanoid arm
+3. Create an action server that executes a walking pattern for a humanoid robot
+
+## References
+
+[1] ROS 2 Documentation, "rclpy User Guide," https://docs.ros.org/en/rolling/p/rclpy/
+
+[2] ROS 2 Documentation, "Nodes in Python," https://docs.ros.org/en/rolling/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Py-Node.html
+
+[3] ROS 2 Documentation, "Publisher/Subscriber in Python," https://docs.ros.org/en/rolling/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Py-Publisher-And-Subscriber.html

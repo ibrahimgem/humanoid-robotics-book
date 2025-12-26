@@ -1,0 +1,841 @@
+---
+sidebar_position: 9
+title: Chapter 2.4 - Advanced ROS 2 Patterns
+description: Parameter Management, Launch Files, and Testing
+---
+
+# Chapter 2.4: Advanced ROS 2 Patterns
+
+## Goal
+Master advanced ROS 2 concepts including parameter management, launch systems, and testing.
+
+## Learning Outcomes
+After completing this chapter, students will implement complex robotic systems with proper configuration and testing.
+
+## Introduction
+
+As robotic systems become more complex, especially in humanoid robotics applications, it becomes essential to manage configuration, deployment, and testing systematically. This chapter covers advanced ROS 2 patterns that enable the development of robust, maintainable, and scalable robotic systems. These patterns are particularly important for humanoid robots, which typically involve multiple subsystems that need to work together seamlessly.
+
+## Advanced Parameter Management
+
+### Parameter Descriptors
+
+Parameter descriptors allow you to specify constraints and callbacks for parameters:
+
+```python
+from rclpy.parameter import Parameter
+from rclpy.node import Node
+
+class ParameterNode(Node):
+    def __init__(self):
+        super().__init__('parameter_node')
+
+        # Declare parameters with descriptors
+        self.declare_parameter(
+            'max_velocity',
+            1.0,
+            ParameterDescriptor(
+                description='Maximum joint velocity in rad/s',
+                type=ParameterType.PARAMETER_DOUBLE,
+                floating_point_range=[ParameterRange(from_value=0.0, to_value=10.0, step=0.1)]
+            )
+        )
+
+        self.declare_parameter(
+            'joint_names',
+            ['joint1', 'joint2', 'joint3'],
+            ParameterDescriptor(
+                description='List of joint names for the robot',
+                type=ParameterType.PARAMETER_STRING_ARRAY
+            )
+        )
+```
+
+### Parameter Validation
+
+```python
+from rclpy.exceptions import ParameterNotDeclaredException
+from rclpy.parameter import Parameter
+from rclpy.node import Node
+
+class ValidatedParameterNode(Node):
+    def __init__(self):
+        super().__init__('validated_parameter_node')
+
+        # Declare parameters
+        self.declare_parameter('control_frequency', 100.0)
+        self.declare_parameter('max_torque', 10.0)
+
+        # Add parameter callback
+        self.add_on_set_parameters_callback(self.parameter_callback)
+
+    def parameter_callback(self, parameters):
+        result = SetParametersResult()
+        result.successful = True
+
+        for param in parameters:
+            if param.name == 'control_frequency':
+                if param.value <= 0 or param.value > 1000:
+                    result.successful = False
+                    result.reason = f'Control frequency must be between 0 and 1000, got {param.value}'
+                    self.get_logger().error(result.reason)
+                    break
+
+            elif param.name == 'max_torque':
+                if param.value <= 0 or param.value > 100:
+                    result.successful = False
+                    result.reason = f'Max torque must be between 0 and 100, got {param.value}'
+                    self.get_logger().error(result.reason)
+                    break
+
+        return result
+```
+
+### Dynamic Parameter Reconfiguration
+
+```python
+from rclpy.node import Node
+from rcl_interfaces.msg import ParameterDescriptor
+from rcl_interfaces.msg import SetParametersResult
+import threading
+
+class DynamicReconfigNode(Node):
+    def __init__(self):
+        super().__init__('dynamic_reconfig_node')
+
+        # Declare parameters with default values
+        self.declare_parameter('kp', 1.0)
+        self.declare_parameter('ki', 0.1)
+        self.declare_parameter('kd', 0.01)
+
+        # Add parameter callback for real-time updates
+        self.add_on_set_parameters_callback(self.parameter_update_callback)
+
+        # Initialize control gains
+        self.kp = self.get_parameter('kp').value
+        self.ki = self.get_parameter('ki').value
+        self.kd = self.get_parameter('kd').value
+
+    def parameter_update_callback(self, parameters):
+        """Callback for parameter updates"""
+        result = SetParametersResult()
+        result.successful = True
+
+        for param in parameters:
+            if param.name == 'kp':
+                self.kp = param.value
+                self.get_logger().info(f'Updated kp to {self.kp}')
+            elif param.name == 'ki':
+                self.ki = param.value
+                self.get_logger().info(f'Updated ki to {self.ki}')
+            elif param.name == 'kd':
+                self.kd = param.value
+                self.get_logger().info(f'Updated kd to {self.kd}')
+
+        return result
+```
+
+## Advanced Launch Systems
+
+### Complex Launch Files
+
+Launch files in ROS 2 use Python to provide powerful configuration capabilities:
+
+```python
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, LogInfo
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
+from launch.conditions import IfCondition
+
+def generate_launch_description():
+    # Declare launch arguments
+    use_sim_time = LaunchConfiguration('use_sim_time', default='false')
+    robot_name = LaunchConfiguration('robot_name', default='humanoid_robot')
+    config_file = LaunchConfiguration('config_file')
+
+    # Declare launch arguments
+    declare_use_sim_time = DeclareLaunchArgument(
+        'use_sim_time',
+        default_value='false',
+        description='Use simulation (Gazebo) clock if true'
+    )
+
+    declare_robot_name = DeclareLaunchArgument(
+        'robot_name',
+        default_value='humanoid_robot',
+        description='Name of the robot'
+    )
+
+    declare_config_file = DeclareLaunchArgument(
+        'config_file',
+        default_value=PathJoinSubstitution([
+            FindPackageShare('my_robot_description'),
+            'config',
+            'robot_config.yaml'
+        ]),
+        description='Path to the robot configuration file'
+    )
+
+    # Create nodes
+    robot_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        parameters=[
+            {'use_sim_time': use_sim_time},
+            {'robot_description': PathJoinSubstitution([
+                FindPackageShare('my_robot_description'),
+                'urdf',
+                'robot.urdf.xacro'
+            ])},
+            config_file
+        ],
+        remappings=[
+            ('/tf', 'tf'),
+            ('/tf_static', 'tf_static')
+        ]
+    )
+
+    joint_state_publisher = Node(
+        package='joint_state_publisher',
+        executable='joint_state_publisher',
+        parameters=[
+            {'use_sim_time': use_sim_time}
+        ]
+    )
+
+    controller_manager = Node(
+        package='controller_manager',
+        executable='ros2_control_node',
+        parameters=[
+            {'use_sim_time': use_sim_time},
+            config_file
+        ],
+        remappings=[
+            ('/tf', 'tf'),
+            ('/tf_static', 'tf_static')
+        ]
+    )
+
+    # Return the launch description
+    return LaunchDescription([
+        declare_use_sim_time,
+        declare_robot_name,
+        declare_config_file,
+        robot_state_publisher,
+        joint_state_publisher,
+        controller_manager,
+    ])
+```
+
+### Conditional Launch
+
+```python
+from launch import LaunchDescription
+from launch.actions import IncludeLaunchDescription, SetEnvironmentVariable
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch_ros.substitutions import FindPackageShare
+from launch.conditions import IfCondition, UnlessCondition
+
+def generate_launch_description():
+    # Launch arguments
+    use_gazebo = LaunchConfiguration('use_gazebo', default='false')
+    use_real_robot = LaunchConfiguration('use_real_robot', default='false')
+
+    # Conditional launch descriptions
+    gazebo_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('gazebo_ros'),
+                'launch',
+                'gazebo.launch.py'
+            ])
+        ]),
+        condition=IfCondition(use_gazebo)
+    )
+
+    robot_driver_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('my_robot_driver'),
+                'launch',
+                'robot_driver.launch.py'
+            ])
+        ]),
+        condition=IfCondition(use_real_robot)
+    )
+
+    return LaunchDescription([
+        gazebo_launch,
+        robot_driver_launch,
+    ])
+```
+
+### Launch Testing
+
+Launch testing allows you to test your launch files:
+
+```python
+import launch
+from launch_ros.actions import Node
+from launch_testing.actions import ReadyToTest
+import launch_testing_ros
+import pytest
+
+def generate_test_description():
+    # Create a test node
+    test_node = Node(
+        package='my_robot_package',
+        executable='test_node',
+        name='test_node'
+    )
+
+    return launch.LaunchDescription([
+        test_node,
+        ReadyToTest(),
+    ]), {'test_node': test_node}
+
+# Test function
+@pytest.mark.launch_test
+def test_node_launch(test_node):
+    assert test_node is not None
+```
+
+## Testing in ROS 2
+
+### Unit Testing with pytest
+
+```python
+import pytest
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+class TestNode(Node):
+    def __init__(self):
+        super().__init__('test_node')
+        self.publisher = self.create_publisher(String, 'test_topic', 10)
+        self.subscription = self.create_subscription(
+            String,
+            'test_topic',
+            self.callback,
+            10
+        )
+        self.received_message = None
+
+    def callback(self, msg):
+        self.received_message = msg.data
+
+def test_publisher_subscriber():
+    rclpy.init()
+    try:
+        node = TestNode()
+
+        # Publish a message
+        msg = String()
+        msg.data = 'test_message'
+        node.publisher.publish(msg)
+
+        # Spin to process the message
+        rclpy.spin_once(node, timeout_sec=0.1)
+
+        # Check if the message was received
+        assert node.received_message == 'test_message'
+    finally:
+        rclpy.shutdown()
+```
+
+### Integration Testing
+
+```python
+import unittest
+import rclpy
+from rclpy.executors import SingleThreadedExecutor
+from rclpy.node import Node
+from std_msgs.msg import String
+from example_interfaces.srv import AddTwoInts
+
+class PublisherNode(Node):
+    def __init__(self):
+        super().__init__('publisher_node')
+        self.publisher = self.create_publisher(String, 'test_topic', 10)
+
+class ServiceNode(Node):
+    def __init__(self):
+        super().__init__('service_node')
+        self.srv = self.create_service(
+            AddTwoInts,
+            'add_two_ints',
+            self.add_callback
+        )
+
+    def add_callback(self, request, response):
+        response.sum = request.a + request.b
+        return response
+
+class TestIntegration(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        rclpy.init()
+
+    @classmethod
+    def tearDownClass(cls):
+        rclpy.shutdown()
+
+    def setUp(self):
+        self.publisher_node = PublisherNode()
+        self.service_node = ServiceNode()
+        self.executor = SingleThreadedExecutor()
+        self.executor.add_node(self.publisher_node)
+        self.executor.add_node(self.service_node)
+
+    def tearDown(self):
+        self.executor.shutdown()
+        self.publisher_node.destroy_node()
+        self.service_node.destroy_node()
+
+    def test_service_call(self):
+        # Create client and call service
+        client = self.service_node.create_client(AddTwoInts, 'add_two_ints')
+
+        # Wait for service
+        while not client.wait_for_service(timeout_sec=1.0):
+            self.service_node.get_logger().info('Service not available')
+
+        # Make request
+        request = AddTwoInts.Request()
+        request.a = 2
+        request.b = 3
+
+        future = client.call_async(request)
+        self.executor.spin_until_future_complete(future, timeout_sec=1.0)
+
+        self.assertEqual(future.result().sum, 5)
+```
+
+### Mock Testing
+
+```python
+from unittest.mock import Mock, patch
+import rclpy
+from rclpy.node import Node
+
+class RobotController(Node):
+    def __init__(self):
+        super().__init__('robot_controller')
+        self.joint_publisher = self.create_publisher(JointState, 'joint_states', 10)
+
+    def move_to_position(self, joint_name, target_position):
+        # Move the robot to the target position
+        current_pos = self.get_current_position(joint_name)
+        while abs(current_pos - target_position) > 0.01:
+            # Move toward target
+            self.publish_joint_command(joint_name, target_position)
+            current_pos = self.get_current_position(joint_name)
+
+    def get_current_position(self, joint_name):
+        # This would normally get position from hardware
+        pass
+
+    def publish_joint_command(self, joint_name, position):
+        # Publish command to joint
+        pass
+
+def test_move_to_position():
+    # Create a mock node
+    with patch('rclpy.node.Node'):
+        controller = RobotController()
+
+        # Mock the methods
+        controller.get_current_position = Mock(return_value=0.0)
+        controller.publish_joint_command = Mock()
+
+        # Test the method
+        controller.move_to_position('joint1', 1.0)
+
+        # Assert that the command was published
+        controller.publish_joint_command.assert_called()
+```
+
+## Design Patterns for Robotic Systems
+
+### State Machine Pattern
+
+```python
+from enum import Enum
+import rclpy
+from rclpy.node import Node
+
+class RobotState(Enum):
+    IDLE = 1
+    MOVING = 2
+    GRASPING = 3
+    ERROR = 4
+
+class StateMachineNode(Node):
+    def __init__(self):
+        super().__init__('state_machine_node')
+        self.current_state = RobotState.IDLE
+        self.state_callbacks = {
+            RobotState.IDLE: self.handle_idle_state,
+            RobotState.MOVING: self.handle_moving_state,
+            RobotState.GRASPING: self.handle_grasping_state,
+            RobotState.ERROR: self.handle_error_state
+        }
+
+    def update_state(self, new_state):
+        if self.current_state != new_state:
+            self.get_logger().info(f'State transition: {self.current_state} -> {new_state}')
+            self.current_state = new_state
+
+    def handle_idle_state(self):
+        # Handle idle state logic
+        pass
+
+    def handle_moving_state(self):
+        # Handle moving state logic
+        pass
+
+    def handle_grasping_state(self):
+        # Handle grasping state logic
+        pass
+
+    def handle_error_state(self):
+        # Handle error state logic
+        pass
+
+    def run_state_machine(self):
+        # Execute the current state's handler
+        handler = self.state_callbacks[self.current_state]
+        handler()
+```
+
+### Observer Pattern
+
+```python
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import Float64MultiArray
+
+class ObservableNode(Node):
+    def __init__(self):
+        super().__init__('observable_node')
+        self.observers = []
+        self.joint_states = []
+
+    def add_observer(self, observer):
+        self.observers.append(observer)
+
+    def remove_observer(self, observer):
+        if observer in self.observers:
+            self.observers.remove(observer)
+
+    def notify_observers(self, data):
+        for observer in self.observers:
+            observer.update(data)
+
+    def joint_state_callback(self, msg):
+        self.joint_states = msg.data
+        self.notify_observers(self.joint_states)
+
+class JointStateObserver:
+    def __init__(self, node):
+        self.node = node
+
+    def update(self, joint_states):
+        # Handle joint state update
+        self.node.get_logger().info(f'Joint states updated: {joint_states}')
+```
+
+### Command Pattern
+
+```python
+from abc import ABC, abstractmethod
+import rclpy
+from rclpy.node import Node
+
+class Command(ABC):
+    @abstractmethod
+    def execute(self):
+        pass
+
+    @abstractmethod
+    def undo(self):
+        pass
+
+class MoveJointCommand(Command):
+    def __init__(self, robot_controller, joint_name, target_position):
+        self.controller = robot_controller
+        self.joint_name = joint_name
+        self.target_position = target_position
+        self.previous_position = None
+
+    def execute(self):
+        self.previous_position = self.controller.get_joint_position(self.joint_name)
+        self.controller.move_joint(self.joint_name, self.target_position)
+
+    def undo(self):
+        if self.previous_position is not None:
+            self.controller.move_joint(self.joint_name, self.previous_position)
+
+class RobotController(Node):
+    def __init__(self):
+        super().__init__('robot_controller')
+        self.command_history = []
+
+    def execute_command(self, command):
+        command.execute()
+        self.command_history.append(command)
+
+    def undo_last_command(self):
+        if self.command_history:
+            last_command = self.command_history.pop()
+            last_command.undo()
+
+    def get_joint_position(self, joint_name):
+        # Get current joint position
+        pass
+
+    def move_joint(self, joint_name, position):
+        # Move joint to position
+        pass
+```
+
+## Performance Optimization
+
+### Efficient Message Handling
+
+```python
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import JointState
+import collections
+
+class OptimizedNode(Node):
+    def __init__(self):
+        super().__init__('optimized_node')
+
+        # Use deque for efficient message buffering
+        self.joint_state_buffer = collections.deque(maxlen=10)
+
+        # Subscribe with appropriate QoS
+        self.subscription = self.create_subscription(
+            JointState,
+            'joint_states',
+            self.joint_state_callback,
+            10,  # Queue size
+            # Use sensor data QoS for sensor messages
+            # qos_profile=qos_profile_sensor_data
+        )
+
+        # Timer for processing batches
+        self.process_timer = self.create_timer(0.01, self.process_joint_states)
+
+    def joint_state_callback(self, msg):
+        # Store message in buffer
+        self.joint_state_buffer.append(msg)
+
+    def process_joint_states(self):
+        # Process multiple messages at once
+        while self.joint_state_buffer:
+            msg = self.joint_state_buffer.popleft()
+            # Process the message
+            self.process_single_message(msg)
+```
+
+### Memory Management
+
+```python
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import Image
+import numpy as np
+
+class MemoryEfficientNode(Node):
+    def __init__(self):
+        super().__init__('memory_efficient_node')
+
+        # Pre-allocate message objects
+        self.processed_image_msg = Image()
+        self.processed_image_data = None
+
+        self.subscription = self.create_subscription(
+            Image,
+            'camera/image_raw',
+            self.image_callback,
+            1
+        )
+
+    def image_callback(self, msg):
+        # Convert ROS image to numpy array
+        image_data = np.frombuffer(msg.data, dtype=np.uint8)
+        image_data = image_data.reshape((msg.height, msg.width, -1))
+
+        # Process image
+        processed_data = self.process_image(image_data)
+
+        # Reuse message object
+        self.processed_image_msg.header = msg.header
+        self.processed_image_msg.height = processed_data.shape[0]
+        self.processed_image_msg.width = processed_data.shape[1]
+        self.processed_image_msg.encoding = msg.encoding
+        self.processed_image_msg.is_bigendian = msg.is_bigendian
+        self.processed_image_msg.step = processed_data.shape[1] * processed_data.dtype.itemsize
+        self.processed_image_msg.data = processed_data.tobytes()
+
+        # Publish processed image
+        # self.publisher.publish(self.processed_image_msg)
+
+    def process_image(self, image):
+        # Process the image efficiently
+        return image  # Placeholder
+```
+
+## Testing Strategies for Humanoid Robotics
+
+### Hardware-in-the-Loop Testing
+
+```python
+import unittest
+from unittest.mock import Mock, patch
+import rclpy
+from rclpy.node import Node
+
+class HardwareInterfaceMock:
+    def __init__(self):
+        self.joint_positions = {}
+        self.joint_velocities = {}
+        self.joint_efforts = {}
+
+    def read_joint_state(self, joint_name):
+        return (
+            self.joint_positions.get(joint_name, 0.0),
+            self.joint_velocities.get(joint_name, 0.0),
+            self.joint_efforts.get(joint_name, 0.0)
+        )
+
+    def write_joint_command(self, joint_name, position, velocity=0.0, effort=0.0):
+        # Simulate writing to hardware
+        pass
+
+class TestHumanoidController(unittest.TestCase):
+    def setUp(self):
+        rclpy.init()
+        self.hardware_mock = HardwareInterfaceMock()
+
+        # Patch the hardware interface
+        with patch('my_robot_hardware.HardwareInterface', return_value=self.hardware_mock):
+            self.controller = HumanoidController()
+
+    def tearDown(self):
+        self.controller.destroy_node()
+        rclpy.shutdown()
+
+    def test_balance_controller(self):
+        # Set up initial conditions
+        self.hardware_mock.joint_positions = {
+            'left_hip': 0.0,
+            'right_hip': 0.0,
+            'left_knee': 0.0,
+            'right_knee': 0.0
+        }
+
+        # Run the balance controller
+        result = self.controller.run_balance_step()
+
+        # Verify the expected behavior
+        self.assertTrue(result.success)
+```
+
+### Simulation Testing
+
+```python
+import unittest
+import rclpy
+from rclpy.node import Node
+from builtin_interfaces.msg import Duration
+
+class SimulationTestNode(Node):
+    def __init__(self):
+        super().__init__('simulation_test_node')
+        self.sim_time = 0.0
+
+    def wait_for_condition(self, condition_func, timeout=10.0):
+        """Wait for a condition to be true in simulation time"""
+        start_time = self.sim_time
+        while self.sim_time - start_time < timeout:
+            if condition_func():
+                return True
+            # In simulation, we might need to step the clock
+            # This is a simplified example
+        return False
+
+def test_walking_pattern():
+    rclpy.init()
+    try:
+        node = SimulationTestNode()
+
+        # Set up the walking controller
+        walker = WalkingController(node)
+
+        # Start walking
+        walker.start_walking()
+
+        # Wait for the robot to take a step
+        success = node.wait_for_condition(
+            lambda: walker.get_step_count() > 0,
+            timeout=5.0
+        )
+
+        assert success, "Robot did not take a step within timeout"
+
+        # Verify final position
+        final_pos = walker.get_robot_position()
+        assert final_pos.x > 0.0, "Robot did not move forward"
+
+    finally:
+        rclpy.shutdown()
+```
+
+## Best Practices
+
+### Configuration Management
+
+- Use YAML files for complex configurations
+- Validate parameters at startup
+- Use parameter descriptors for constraints
+- Implement parameter change callbacks
+
+### Testing Best Practices
+
+- Write unit tests for individual components
+- Create integration tests for subsystems
+- Use mocking to isolate dependencies
+- Implement continuous integration
+
+### Performance Best Practices
+
+- Profile your nodes to identify bottlenecks
+- Use appropriate QoS settings
+- Implement efficient data structures
+- Consider threading for I/O operations
+
+## Summary
+
+Advanced ROS 2 patterns provide the tools needed to build complex, robust robotic systems. Proper parameter management, launch systems, and testing strategies are essential for humanoid robotics applications. These patterns enable the development of maintainable, scalable, and reliable robotic systems that can handle the complexity of humanoid robots.
+
+## Exercises
+
+1. Create a launch file that starts a complete humanoid robot system with multiple controllers
+2. Implement a state machine for a humanoid robot's walking behavior
+3. Write unit tests for a humanoid robot's balance controller
+
+## References
+
+[1] ROS 2 Documentation, "Launch System," https://docs.ros.org/en/rolling/p/launch/
+
+[2] ROS 2 Documentation, "Testing," https://docs.ros.org/en/rolling/How-To-Guides/Testing/
+
+[3] ROS 2 Documentation, "Parameters," https://docs.ros.org/en/rolling/How-To-Guides/Using-Parameters-in-a-class-CPP.html

@@ -1,0 +1,1130 @@
+---
+sidebar_position: 14
+title: Chapter 3.4 - Simulation-to-Real Transfer
+description: Bridging Simulation and Reality
+---
+
+# Chapter 3.4: Simulation-to-Real Transfer
+
+## Goal
+Understand techniques for transferring learned behaviors from simulation to real robots.
+
+## Learning Outcomes
+After completing this chapter, students will implement domain randomization and other techniques for sim-to-real transfer.
+
+## Introduction
+
+Simulation-to-real transfer, often called "sim-to-real," is one of the most challenging aspects of robotics research. The goal is to develop behaviors, controllers, or learning algorithms in simulation that will work effectively on real robots. This is particularly challenging for humanoid robots due to their complex dynamics, numerous degrees of freedom, and sensitivity to environmental conditions. The "reality gap" between simulation and reality encompasses differences in physics, sensors, actuators, and environmental conditions that can cause behaviors learned in simulation to fail when deployed on real hardware.
+
+## Understanding the Reality Gap
+
+### Sources of the Reality Gap
+
+The reality gap arises from multiple sources that create differences between simulation and reality:
+
+#### Physical Differences
+- **Inertial Properties**: Mass, center of mass, and moments of inertia may differ between model and reality
+- **Joint Friction**: Real joints have complex friction behaviors not fully captured in simulation
+- **Actuator Dynamics**: Real actuators have delays, bandwidth limitations, and non-linear responses
+- **Flexibility**: Real robots have structural flexibility not modeled in rigid-body simulation
+- **Contact Mechanics**: Real contacts involve complex interactions not fully captured by simulation models
+
+#### Sensor Differences
+- **Noise Characteristics**: Real sensors have different noise patterns than simulated ones
+- **Latency**: Real sensors often have processing and communication delays
+- **Calibration Errors**: Real sensors may have calibration errors not present in simulation
+- **Environmental Effects**: Real sensors are affected by lighting, temperature, and other environmental factors
+
+#### Environmental Differences
+- **Surface Properties**: Real surfaces have different friction, compliance, and texture than simulated ones
+- **External Disturbances**: Real environments have unpredictable disturbances (wind, vibrations, etc.)
+- **Modeling Limitations**: Perfect environment models are impossible to create
+
+### Quantifying the Reality Gap
+
+Understanding and quantifying the reality gap is essential for successful sim-to-real transfer:
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.spatial.transform import Rotation as R
+
+class RealityGapAnalyzer:
+    def __init__(self, robot_model, real_robot_interface):
+        self.robot_model = robot_model
+        self.real_robot = real_robot_interface
+
+    def compare_kinematics(self, joint_angles):
+        """Compare forward kinematics between model and real robot"""
+        # Get end-effector pose from simulation
+        sim_pose = self.robot_model.forward_kinematics(joint_angles)
+
+        # Get end-effector pose from real robot
+        real_pose = self.real_robot.get_end_effector_pose()
+
+        # Calculate position error
+        pos_error = np.linalg.norm(sim_pose[:3] - real_pose[:3])
+
+        # Calculate orientation error
+        sim_rot = R.from_matrix(sim_pose[3:].reshape(3,3))
+        real_rot = R.from_matrix(real_pose[3:].reshape(3,3))
+        rot_error = np.abs(sim_rot.inv() * real_rot).as_rotvec()
+
+        return pos_error, rot_error
+
+    def analyze_dynamics(self, joint_commands, dt=0.01):
+        """Analyze dynamic response differences"""
+        # Apply same commands to simulation and real robot
+        sim_response = self.robot_model.simulate_dynamics(joint_commands, dt)
+        real_response = self.real_robot.execute_commands(joint_commands, dt)
+
+        # Compare joint positions, velocities, and accelerations
+        pos_diff = np.abs(sim_response['positions'] - real_response['positions'])
+        vel_diff = np.abs(sim_response['velocities'] - real_response['velocities'])
+
+        return pos_diff, vel_diff
+
+    def characterize_sensor_noise(self, num_samples=1000):
+        """Characterize real sensor noise patterns"""
+        sensor_data = []
+        for _ in range(num_samples):
+            data = self.real_robot.get_sensor_data()
+            sensor_data.append(data)
+
+        # Calculate statistics
+        sensor_mean = np.mean(sensor_data, axis=0)
+        sensor_std = np.std(sensor_data, axis=0)
+
+        return sensor_mean, sensor_std
+```
+
+## Domain Randomization
+
+Domain randomization is a key technique for improving sim-to-real transfer by training policies in diverse simulation environments.
+
+### Basic Domain Randomization
+
+```python
+import numpy as np
+import random
+
+class DomainRandomizer:
+    def __init__(self):
+        self.randomization_params = {}
+
+    def add_randomization(self, param_name, min_val, max_val, randomization_type='uniform'):
+        """Add a parameter to be randomized"""
+        self.randomization_params[param_name] = {
+            'min': min_val,
+            'max': max_val,
+            'type': randomization_type
+        }
+
+    def randomize_robot_properties(self, robot):
+        """Randomize robot properties for domain randomization"""
+        # Randomize link masses
+        for i, link in enumerate(robot.links):
+            if random.random() < 0.5:  # Randomize 50% of the time
+                mass_factor = np.random.uniform(0.8, 1.2)  # ±20% variation
+                robot.set_link_mass(i, link.mass * mass_factor)
+
+        # Randomize joint friction
+        for i, joint in enumerate(robot.joints):
+            friction = np.random.uniform(0.0, 0.1)  # Random friction
+            robot.set_joint_friction(i, friction)
+
+        # Randomize COM offsets
+        for i, link in enumerate(robot.links):
+            com_offset = np.random.uniform(-0.01, 0.01, 3)  # ±1cm COM offset
+            robot.set_link_com_offset(i, com_offset)
+
+    def randomize_environment(self, env):
+        """Randomize environment properties"""
+        # Randomize floor friction
+        floor_friction = np.random.uniform(0.4, 1.0)
+        env.set_floor_friction(floor_friction)
+
+        # Randomize lighting conditions
+        light_intensity = np.random.uniform(500, 2000)
+        env.set_light_intensity(light_intensity)
+
+        # Randomize object properties
+        for obj in env.objects:
+            if hasattr(obj, 'mass'):
+                mass_factor = np.random.uniform(0.8, 1.2)
+                obj.mass *= mass_factor
+
+    def randomize_sensors(self, robot):
+        """Randomize sensor properties"""
+        # Randomize IMU noise parameters
+        for sensor in robot.imu_sensors:
+            sensor.noise_params['accelerometer']['std'] = np.random.uniform(0.001, 0.01)
+            sensor.noise_params['gyroscope']['std'] = np.random.uniform(0.0001, 0.001)
+
+        # Randomize camera parameters
+        for camera in robot.cameras:
+            camera.noise_std = np.random.uniform(0.01, 0.05)
+            camera.bias = np.random.uniform(-0.01, 0.01, 3)
+
+# Example usage
+def setup_domain_randomization():
+    randomizer = DomainRandomizer()
+
+    # Add randomization for key parameters
+    randomizer.add_randomization('robot_mass', 0.8, 1.2, 'uniform')
+    randomizer.add_randomization('floor_friction', 0.4, 1.0, 'uniform')
+    randomizer.add_randomization('imu_noise', 0.001, 0.01, 'uniform')
+
+    return randomizer
+```
+
+### Advanced Domain Randomization Techniques
+
+```python
+class AdvancedDomainRandomizer:
+    def __init__(self):
+        self.param_distributions = {}
+        self.randomization_schedule = {}
+
+    def setup_systematic_randomization(self):
+        """Setup systematic parameter randomization"""
+        # Define parameter ranges with more sophisticated distributions
+        self.param_distributions = {
+            'link_mass_factor': {
+                'type': 'gaussian',
+                'mean': 1.0,
+                'std': 0.1,
+                'min': 0.7,
+                'max': 1.3
+            },
+            'joint_damping': {
+                'type': 'uniform',
+                'min': 0.01,
+                'max': 0.2
+            },
+            'imu_drift_rate': {
+                'type': 'gaussian',
+                'mean': 0.0,
+                'std': 0.001
+            },
+            'actuator_delay': {
+                'type': 'uniform',
+                'min': 0.0,
+                'max': 0.02  # 20ms delay
+            }
+        }
+
+    def apply_correlated_randomization(self, robot):
+        """Apply correlated parameter randomization"""
+        # Randomize parameters that are physically related
+        base_mass_factor = np.random.normal(1.0, 0.1)
+
+        # Apply correlated mass factors (heavier robots tend to have heavier components)
+        for i, link in enumerate(robot.links):
+            # Correlate with base mass but add some independent variation
+            link_factor = base_mass_factor * np.random.uniform(0.9, 1.1)
+            link_factor = np.clip(link_factor, 0.7, 1.3)
+            robot.set_link_mass(i, link.mass * link_factor)
+
+    def temporal_randomization(self):
+        """Apply time-varying randomization parameters"""
+        # Parameters that change over time during training
+        current_time = self.get_simulation_time()
+
+        # Slowly varying parameters
+        mass_drift = 0.01 * np.sin(current_time * 0.01)  # Slow drift
+        friction_drift = 0.05 * np.sin(current_time * 0.02)
+
+        return mass_drift, friction_drift
+
+    def adaptive_randomization(self, performance_history):
+        """Adapt randomization based on learning progress"""
+        if len(performance_history) < 10:
+            return  # Not enough data yet
+
+        # Calculate recent performance trend
+        recent_perf = np.mean(performance_history[-10:])
+        overall_perf = np.mean(performance_history)
+
+        # Increase randomization if performance is plateauing
+        if abs(recent_perf - overall_perf) < 0.01:  # Performance plateau
+            self.increase_randomization_range()
+        elif recent_perf > overall_perf:  # Improving performance
+            self.maintain_randomization_range()
+
+    def increase_randomization_range(self):
+        """Increase the range of randomization parameters"""
+        for param_name, config in self.param_distributions.items():
+            if 'range_multiplier' not in config:
+                config['range_multiplier'] = 1.0
+
+            config['range_multiplier'] = min(config['range_multiplier'] * 1.1, 2.0)
+
+    def setup_randomization_schedule(self):
+        """Setup schedule for gradually increasing randomization"""
+        # Phase 1: Low randomization for initial learning
+        # Phase 2: Medium randomization for robustness
+        # Phase 3: High randomization for real-world readiness
+        self.randomization_schedule = {
+            'phase_1': {'duration': 100000, 'multiplier': 0.5},
+            'phase_2': {'duration': 200000, 'multiplier': 1.0},
+            'phase_3': {'duration': 300000, 'multiplier': 1.5}
+        }
+```
+
+## System Identification
+
+System identification is crucial for creating accurate simulation models that match real robot behavior.
+
+### Parameter Estimation
+
+```python
+import numpy as np
+from scipy.optimize import minimize
+from scipy.integrate import solve_ivp
+
+class SystemIdentifier:
+    def __init__(self, robot_model):
+        self.model = robot_model
+        self.identification_data = []
+
+    def collect_identification_data(self, robot, excitation_signals):
+        """Collect data for system identification"""
+        for signal in excitation_signals:
+            # Apply excitation signal to robot
+            robot.apply_excitation(signal)
+
+            # Record inputs and outputs
+            input_data = signal.get_inputs()
+            output_data = robot.get_sensor_readings()
+
+            self.identification_data.append({
+                'inputs': input_data,
+                'outputs': output_data,
+                'timestamps': signal.get_timestamps()
+            })
+
+    def estimate_inertial_parameters(self):
+        """Estimate inertial parameters using collected data"""
+        # Define objective function to minimize
+        def objective_function(params):
+            # Set model parameters
+            self.model.set_inertial_params(params)
+
+            total_error = 0
+            for data in self.identification_data:
+                # Simulate with current parameters
+                sim_outputs = self.model.simulate(data['inputs'])
+
+                # Calculate error
+                error = np.sum((sim_outputs - data['outputs'])**2)
+                total_error += error
+
+            return total_error
+
+        # Initial parameter guess
+        initial_params = self.model.get_current_inertial_params()
+
+        # Optimize parameters
+        result = minimize(objective_function, initial_params, method='BFGS')
+
+        # Update model with optimized parameters
+        self.model.set_inertial_params(result.x)
+
+        return result.x
+
+    def estimate_friction_parameters(self):
+        """Estimate joint friction parameters"""
+        # Use Coulomb + viscous friction model: tau_friction = tau_static * sign(w) + b * w
+        friction_params = {}
+
+        for joint_idx in range(self.model.num_joints):
+            # Extract data for this joint
+            joint_data = self.extract_joint_data(joint_idx)
+
+            # Separate static and viscous friction
+            velocities = joint_data['velocities']
+            torques = joint_data['torques']
+
+            # Estimate static friction (intercept at zero velocity)
+            static_friction = np.mean(np.abs(torques[velocities == 0]))
+
+            # Estimate viscous friction (slope for non-zero velocities)
+            non_zero_vel = velocities != 0
+            viscous_coeff = np.mean(torques[non_zero_vel] / velocities[non_zero_vel])
+
+            friction_params[joint_idx] = {
+                'static': static_friction,
+                'viscous': abs(viscous_coeff)
+            }
+
+        return friction_params
+
+    def validate_identification(self):
+        """Validate identified parameters with held-out data"""
+        # Use separate validation dataset
+        validation_data = self.get_validation_data()
+
+        total_error = 0
+        for data in validation_data:
+            # Simulate with identified parameters
+            sim_outputs = self.model.simulate(data['inputs'])
+
+            # Calculate validation error
+            error = np.mean(np.abs(sim_outputs - data['outputs']))
+            total_error += error
+
+        return total_error / len(validation_data)
+```
+
+### Model Fitting Techniques
+
+```python
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, WhiteKernel
+import joblib
+
+class ModelRefiner:
+    def __init__(self):
+        self.correction_models = {}
+        self.residual_data = []
+
+    def learn_residual_models(self, sim_data, real_data):
+        """Learn correction models for simulation errors"""
+        for state_type in ['positions', 'velocities', 'accelerations']:
+            # Calculate residuals (real - simulation)
+            residuals = real_data[state_type] - sim_data[state_type]
+
+            # Use state and control inputs as features for correction
+            features = np.column_stack([
+                sim_data['positions'],
+                sim_data['velocities'],
+                sim_data['controls']
+            ])
+
+            # Train Gaussian Process model to predict residuals
+            kernel = RBF(length_scale=1.0) + WhiteKernel(noise_level=1.0)
+            gp = GaussianProcessRegressor(kernel=kernel, alpha=1e-6)
+
+            gp.fit(features, residuals)
+            self.correction_models[state_type] = gp
+
+    def apply_corrections(self, sim_state, control_input):
+        """Apply learned corrections to simulation"""
+        features = np.column_stack([
+            sim_state['positions'],
+            sim_state['velocities'],
+            control_input
+        ])
+
+        corrected_state = sim_state.copy()
+
+        for state_type in ['positions', 'velocities', 'accelerations']:
+            if state_type in self.correction_models:
+                # Predict and apply correction
+                correction = self.correction_models[state_type].predict(features)
+                corrected_state[state_type] += correction
+
+        return corrected_state
+
+    def online_adaptation(self, real_state, sim_state):
+        """Update correction models based on real-world observations"""
+        # Calculate current residual
+        residual = real_state - sim_state
+
+        # Update GP model with new data point
+        # (In practice, this would involve more sophisticated online learning)
+        pass
+
+    def save_models(self, filepath):
+        """Save learned correction models"""
+        joblib.dump(self.correction_models, filepath)
+
+    def load_models(self, filepath):
+        """Load learned correction models"""
+        self.correction_models = joblib.load(filepath)
+```
+
+## Robust Control Design
+
+Designing controllers that are robust to model inaccuracies is crucial for sim-to-real transfer.
+
+### Robust PID Control
+
+```python
+import numpy as np
+
+class RobustPIDController:
+    def __init__(self, kp, ki, kd, robustness_margin=0.1):
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+        self.integral = 0
+        self.previous_error = 0
+        self.robustness_margin = robustness_margin
+
+        # Adaptive parameters
+        self.adaptive_enabled = True
+        self.param_history = {'kp': [], 'ki': [], 'kd': []}
+
+    def compute_control(self, error, dt):
+        """Compute robust PID control with anti-windup and noise filtering"""
+        # Apply low-pass filter to reduce noise effects
+        filtered_error = self._low_pass_filter(error)
+
+        # Proportional term
+        p_term = self.kp * filtered_error
+
+        # Integral term with anti-windup
+        self.integral += filtered_error * dt
+        # Limit integral to prevent windup
+        integral_limit = 1.0 / self.ki if self.ki != 0 else 1.0
+        self.integral = np.clip(self.integral, -integral_limit, integral_limit)
+        i_term = self.ki * self.integral
+
+        # Derivative term with noise filtering
+        derivative = (filtered_error - self.previous_error) / dt if dt > 0 else 0
+        d_term = self.kd * derivative
+
+        # Store for next iteration
+        self.previous_error = filtered_error
+
+        # Apply robustness margin to prevent aggressive control
+        control_output = p_term + i_term + d_term
+        control_output = np.clip(control_output,
+                                -self.robustness_margin,
+                                self.robustness_margin)
+
+        return control_output
+
+    def _low_pass_filter(self, signal, cutoff_freq=10.0):
+        """Apply low-pass filter to reduce noise"""
+        # Simple first-order low-pass filter
+        if not hasattr(self, 'filtered_signal'):
+            self.filtered_signal = signal
+        else:
+            alpha = 1.0 / (1.0 + 2 * np.pi * cutoff_freq * 0.01)  # dt assumed to be 0.01
+            self.filtered_signal = alpha * signal + (1 - alpha) * self.filtered_signal
+
+        return self.filtered_signal
+
+    def adapt_parameters(self, tracking_error, control_effort):
+        """Adapt PID parameters based on performance"""
+        if not self.adaptive_enabled:
+            return
+
+        # Adjust parameters based on tracking performance
+        error_magnitude = np.abs(tracking_error)
+        effort_magnitude = np.abs(control_effort)
+
+        # If error is large, increase gains
+        if error_magnitude > 0.1:  # Threshold
+            self.kp *= 1.01
+            self.ki *= 1.01
+        # If control effort is excessive, decrease gains
+        elif effort_magnitude > 0.8:  # Threshold
+            self.kp *= 0.99
+            self.ki *= 0.99
+
+        # Store history for monitoring
+        self.param_history['kp'].append(self.kp)
+        self.param_history['ki'].append(self.ki)
+        self.param_history['kd'].append(self.kd)
+
+        # Limit parameter values
+        self.kp = np.clip(self.kp, 0.1, 100.0)
+        self.ki = np.clip(self.ki, 0.01, 50.0)
+        self.kd = np.clip(self.kd, 0.01, 10.0)
+
+class RobustTrajectoryController:
+    def __init__(self, robot_model, trajectory_generator):
+        self.robot = robot_model
+        self.trajectory_gen = trajectory_generator
+        self.pid_controllers = [RobustPIDController(10, 1, 0.1) for _ in range(robot_model.num_joints)]
+        self.disturbance_observer = DisturbanceObserver(robot_model)
+
+    def track_trajectory(self, current_state, target_trajectory, dt):
+        """Track trajectory with robust control"""
+        # Generate desired state from trajectory
+        desired_state = self.trajectory_gen.get_desired_state()
+
+        # Compute tracking errors
+        position_error = desired_state['positions'] - current_state['positions']
+        velocity_error = desired_state['velocities'] - current_state['velocities']
+
+        # Apply disturbance compensation
+        disturbance_estimate = self.disturbance_observer.estimate_disturbance(
+            current_state, desired_state
+        )
+
+        # Compute control with robust PID
+        control_commands = np.zeros(self.robot.num_joints)
+        for i in range(self.robot.num_joints):
+            tracking_error = position_error[i]
+            control_commands[i] = self.pid_controllers[i].compute_control(tracking_error, dt)
+
+            # Add disturbance compensation
+            control_commands[i] -= disturbance_estimate[i]
+
+            # Adapt parameters based on performance
+            self.pid_controllers[i].adapt_parameters(tracking_error, control_commands[i])
+
+        return control_commands
+```
+
+### Disturbance Observer
+
+```python
+class DisturbanceObserver:
+    def __init__(self, robot_model, cutoff_freq=10.0):
+        self.model = robot_model
+        self.cutoff_freq = cutoff_freq
+        self.state_history = []
+        self.disturbance_estimate = np.zeros(robot_model.num_joints)
+        self.filter_state = np.zeros(robot_model.num_joints)
+
+    def estimate_disturbance(self, current_state, desired_state):
+        """Estimate external disturbances using model prediction error"""
+        # Predict next state using model
+        model_prediction = self.model.predict_state(
+            current_state, desired_state['controls']
+        )
+
+        # Calculate prediction error (indicates disturbances)
+        prediction_error = current_state['positions'] - model_prediction['positions']
+
+        # Apply low-pass filter to estimate slowly-varying disturbances
+        alpha = 1.0 / (1.0 + 2 * np.pi * self.cutoff_freq * 0.01)  # Assuming dt = 0.01
+        self.disturbance_estimate = alpha * prediction_error + (1 - alpha) * self.disturbance_estimate
+
+        return self.disturbance_estimate
+```
+
+## Adaptive Control Techniques
+
+### Model Reference Adaptive Control (MRAC)
+
+```python
+class ModelReferenceAdaptiveController:
+    def __init__(self, robot_model, reference_model, gamma=0.1):
+        self.robot_model = robot_model
+        self.ref_model = reference_model
+        self.gamma = gamma  # Adaptation rate
+
+        # Adaptive parameters
+        self.theta = np.zeros(robot_model.num_joints)  # Parameter estimates
+        self.P = np.eye(robot_model.num_joints) * 100  # Covariance matrix
+
+    def compute_control(self, current_state, reference_state, dt):
+        """Compute control using MRAC"""
+        # Tracking error
+        error = reference_state['positions'] - current_state['positions']
+        error_dot = reference_state['velocities'] - current_state['velocities']
+
+        # Reference model dynamics
+        ref_accel = self.ref_model.get_acceleration(reference_state)
+
+        # Control law: u = u_model + u_adaptive
+        # where u_model cancels known dynamics
+        # and u_adaptive handles uncertainties
+        model_control = self.robot_model.inverse_dynamics(
+            current_state['positions'],
+            current_state['velocities'],
+            ref_accel
+        )
+
+        # Adaptive control term
+        adaptive_control = self.theta * error
+
+        # Total control
+        control = model_control + adaptive_control
+
+        # Update parameter estimates
+        self._update_parameters(error, current_state, dt)
+
+        return control
+
+    def _update_parameters(self, error, state, dt):
+        """Update adaptive parameters using gradient descent"""
+        # Gradient of parameter estimation error
+        phi = self._regression_vector(state)
+
+        # Covariance update (recursive least squares)
+        K = self.P @ phi / (1 + phi.T @ self.P @ phi)
+        self.P = self.P - K @ phi.T @ self.P
+
+        # Parameter update
+        self.theta += self.gamma * K * error
+
+class SelfTuningRegulator:
+    def __init__(self, robot_model, control_horizon=10):
+        self.model = robot_model
+        self.control_horizon = control_horizon
+        self.parameter_estimator = RecursiveLeastSquares()
+
+    def compute_optimal_control(self, current_state, reference_trajectory):
+        """Compute optimal control using online parameter estimation"""
+        # Estimate model parameters online
+        estimated_params = self.parameter_estimator.get_parameters()
+
+        # Update internal model
+        self.model.update_parameters(estimated_params)
+
+        # Solve optimal control problem over horizon
+        optimal_control = self._solve_mpc_problem(
+            current_state, reference_trajectory
+        )
+
+        return optimal_control
+
+    def _solve_mpc_problem(self, current_state, reference_trajectory):
+        """Solve Model Predictive Control problem"""
+        # Define cost function
+        def cost_function(controls):
+            total_cost = 0
+            state = current_state.copy()
+
+            for i in range(self.control_horizon):
+                # Apply control and simulate
+                state = self.model.predict_state(state, controls[i])
+
+                # Add tracking cost
+                tracking_error = reference_trajectory[i] - state['positions']
+                total_cost += np.sum(tracking_error**2)
+
+                # Add control effort cost
+                total_cost += 0.01 * np.sum(controls[i]**2)
+
+            return total_cost
+
+        # Optimize control sequence
+        from scipy.optimize import minimize
+
+        initial_controls = np.zeros((self.control_horizon, self.model.num_joints))
+        result = minimize(cost_function, initial_controls.flatten())
+
+        optimal_controls = result.x.reshape((self.control_horizon, self.model.num_joints))
+
+        # Return first control in sequence
+        return optimal_controls[0]
+```
+
+## Transfer Learning Strategies
+
+### Progressive Domain Transfer
+
+```python
+class ProgressiveDomainTransfer:
+    def __init__(self, sim_env, real_env):
+        self.sim_env = sim_env
+        self.real_env = real_env
+        self.transfer_stage = 0
+        self.performance_thresholds = [0.6, 0.8, 0.9]  # Performance thresholds
+
+    def transfer_policy_progressively(self, policy):
+        """Transfer policy from simulation to reality progressively"""
+        while self.transfer_stage < len(self.performance_thresholds):
+            # Adjust simulation to be more realistic
+            self._adjust_simulation_fidelity()
+
+            # Train policy in adjusted simulation
+            policy = self._train_in_simulation(policy)
+
+            # Test on real robot
+            real_performance = self._test_on_real_robot(policy)
+
+            # Check if performance meets threshold
+            if real_performance >= self.performance_thresholds[self.transfer_stage]:
+                self.transfer_stage += 1
+                print(f"Transfer stage {self.transfer_stage} completed")
+            else:
+                # Continue training in current simulation fidelity
+                print(f"Performance {real_performance:.3f} below threshold, continuing training")
+
+        return policy
+
+    def _adjust_simulation_fidelity(self):
+        """Gradually reduce simulation fidelity to match reality"""
+        if self.transfer_stage == 0:
+            # High fidelity simulation
+            self.sim_env.set_physics_accuracy('high')
+            self.sim_env.set_sensor_noise('low')
+        elif self.transfer_stage == 1:
+            # Medium fidelity simulation
+            self.sim_env.set_physics_accuracy('medium')
+            self.sim_env.set_sensor_noise('medium')
+            # Add some actuator delays
+            self.sim_env.set_actuator_delay(0.01)
+        else:
+            # Low fidelity simulation (closer to real)
+            self.sim_env.set_physics_accuracy('low')
+            self.sim_env.set_sensor_noise('high')
+            self.sim_env.set_actuator_delay(0.02)
+            # Add environmental disturbances
+            self.sim_env.enable_disturbances(True)
+
+    def _train_in_simulation(self, policy):
+        """Train policy in current simulation environment"""
+        # Training loop
+        for episode in range(1000):  # Adjust as needed
+            state = self.sim_env.reset()
+            done = False
+
+            while not done:
+                action = policy.get_action(state)
+                next_state, reward, done, info = self.sim_env.step(action)
+                policy.update(state, action, reward, next_state)
+                state = next_state
+
+        return policy
+
+    def _test_on_real_robot(self, policy):
+        """Test policy on real robot and return performance metric"""
+        total_reward = 0
+        num_episodes = 10
+
+        for episode in range(num_episodes):
+            state = self.real_env.reset()
+            done = False
+            episode_reward = 0
+
+            while not done:
+                action = policy.get_action(state)
+                next_state, reward, done, info = self.real_env.step(action)
+                episode_reward += reward
+                state = next_state
+
+            total_reward += episode_reward
+
+        return total_reward / num_episodes
+```
+
+### Fine-tuning on Real Data
+
+```python
+import torch
+import torch.nn as nn
+import numpy as np
+
+class RealDataFineTuner:
+    def __init__(self, pre_trained_policy, real_data_buffer):
+        self.policy = pre_trained_policy
+        self.real_buffer = real_data_buffer
+        self.fine_tuning_enabled = True
+
+    def fine_tune_policy(self, learning_rate=1e-5, epochs=100):
+        """Fine-tune policy using real robot data"""
+        if not self.fine_tuning_enabled:
+            return
+
+        optimizer = torch.optim.Adam(
+            self.policy.parameters(),
+            lr=learning_rate,
+            weight_decay=1e-4
+        )
+
+        criterion = nn.MSELoss()
+
+        for epoch in range(epochs):
+            total_loss = 0
+            num_batches = 0
+
+            # Sample batches from real data buffer
+            for batch in self.real_buffer.sample_batches(batch_size=32):
+                states, actions, rewards, next_states = batch
+
+                # Forward pass
+                predicted_actions = self.policy(states)
+
+                # Calculate loss
+                loss = criterion(predicted_actions, actions)
+
+                # Backward pass
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                total_loss += loss.item()
+                num_batches += 1
+
+            avg_loss = total_loss / num_batches
+            print(f"Fine-tuning epoch {epoch}, avg loss: {avg_loss:.6f}")
+
+    def safe_fine_tuning(self, safety_margin=0.1):
+        """Fine-tune while maintaining safety constraints"""
+        # Collect initial performance baseline
+        initial_performance = self._evaluate_performance()
+
+        # Fine-tune with safety checks
+        for epoch in range(100):
+            # Perform one step of fine-tuning
+            self._single_fine_tuning_step()
+
+            # Check performance hasn't degraded beyond safety margin
+            current_performance = self._evaluate_performance()
+
+            if current_performance < initial_performance * (1 - safety_margin):
+                print("Performance degradation detected, stopping fine-tuning")
+                break
+
+class ImitationLearningTransfer:
+    def __init__(self, expert_demonstrations, student_policy):
+        self.expert_data = expert_demonstrations
+        self.student_policy = student_policy
+
+    def behavioral_cloning_transfer(self):
+        """Transfer behavior using behavioral cloning"""
+        # Prepare dataset
+        states = torch.tensor(self.expert_data['states'], dtype=torch.float32)
+        actions = torch.tensor(self.expert_data['actions'], dtype=torch.float32)
+
+        # Train student policy to mimic expert
+        optimizer = torch.optim.Adam(self.student_policy.parameters(), lr=1e-4)
+        criterion = nn.MSELoss()
+
+        for epoch in range(1000):
+            optimizer.zero_grad()
+
+            # Forward pass
+            predicted_actions = self.student_policy(states)
+            loss = criterion(predicted_actions, actions)
+
+            # Backward pass
+            loss.backward()
+            optimizer.step()
+
+            if epoch % 100 == 0:
+                print(f"BC epoch {epoch}, loss: {loss.item():.6f}")
+
+        return self.student_policy
+
+    def dagger_transfer(self, real_env, num_iterations=10):
+        """Transfer using Dataset Aggregation (DAgger)"""
+        for iteration in range(num_iterations):
+            # Collect data using current policy on real robot
+            real_data = self._collect_real_data(real_env, self.student_policy)
+
+            # Add to training set
+            self.expert_data.add_data(real_data)
+
+            # Retrain policy
+            self.student_policy = self.behavioral_cloning_transfer()
+
+        return self.student_policy
+```
+
+## Evaluation and Validation
+
+### Sim-to-Real Performance Metrics
+
+```python
+class TransferEvaluator:
+    def __init__(self, sim_env, real_env):
+        self.sim_env = sim_env
+        self.real_env = real_env
+        self.metrics = {}
+
+    def evaluate_transfer_performance(self, policy):
+        """Evaluate sim-to-real transfer performance"""
+        # Test policy in simulation
+        sim_performance = self._evaluate_in_simulation(policy)
+
+        # Test policy on real robot
+        real_performance = self._evaluate_on_real_robot(policy)
+
+        # Calculate transfer ratio
+        transfer_ratio = real_performance / sim_performance if sim_performance != 0 else 0
+
+        # Calculate performance gap
+        performance_gap = sim_performance - real_performance
+
+        self.metrics = {
+            'sim_performance': sim_performance,
+            'real_performance': real_performance,
+            'transfer_ratio': transfer_ratio,
+            'performance_gap': performance_gap,
+            'success_rate': self._calculate_success_rate(policy)
+        }
+
+        return self.metrics
+
+    def _evaluate_in_simulation(self, policy):
+        """Evaluate policy in simulation environment"""
+        total_reward = 0
+        num_episodes = 50
+
+        for _ in range(num_episodes):
+            state = self.sim_env.reset()
+            done = False
+            episode_reward = 0
+
+            while not done:
+                action = policy.get_action(state)
+                state, reward, done, _ = self.sim_env.step(action)
+                episode_reward += reward
+
+            total_reward += episode_reward
+
+        return total_reward / num_episodes
+
+    def _evaluate_on_real_robot(self, policy):
+        """Evaluate policy on real robot"""
+        total_reward = 0
+        num_episodes = 10  # Fewer episodes on real robot
+
+        for _ in range(num_episodes):
+            state = self.real_env.reset()
+            done = False
+            episode_reward = 0
+
+            while not done:
+                action = policy.get_action(state)
+                state, reward, done, _ = self.real_env.step(action)
+                episode_reward += reward
+
+            total_reward += episode_reward
+
+        return total_reward / num_episodes
+
+    def _calculate_success_rate(self, policy):
+        """Calculate success rate for specific tasks"""
+        success_count = 0
+        total_attempts = 10
+
+        for _ in range(total_attempts):
+            state = self.real_env.reset()
+            done = False
+            success = False
+
+            # Run episode and check for success condition
+            for _ in range(1000):  # Max steps
+                action = policy.get_action(state)
+                state, reward, done, info = self.real_env.step(action)
+
+                # Check success condition (example: reaching target)
+                if info.get('success', False):
+                    success = True
+                    break
+
+                if done:
+                    break
+
+            if success:
+                success_count += 1
+
+        return success_count / total_attempts
+
+    def analyze_failure_modes(self, policy):
+        """Analyze common failure modes in sim-to-real transfer"""
+        failure_modes = {
+            'falling': 0,
+            'joint_limits': 0,
+            'tracking_error': 0,
+            'instability': 0
+        }
+
+        for _ in range(20):  # Run multiple trials
+            state = self.real_env.reset()
+            done = False
+            initial_height = state['base_position'][2]
+
+            while not done:
+                action = policy.get_action(state)
+                state, reward, done, info = self.real_env.step(action)
+
+                # Check for various failure modes
+                current_height = state['base_position'][2]
+
+                # Falling check
+                if current_height < 0.3:  # Fell down
+                    failure_modes['falling'] += 1
+                    break
+
+                # Joint limit violation
+                if np.any(np.abs(state['joint_positions']) > 3.0):  # Example limit
+                    failure_modes['joint_limits'] += 1
+
+                # Tracking error too large
+                if info.get('tracking_error', 0) > 0.5:
+                    failure_modes['tracking_error'] += 1
+
+                # Instability (high joint velocities)
+                if np.any(np.abs(state['joint_velocities']) > 10.0):
+                    failure_modes['instability'] += 1
+
+        return failure_modes
+```
+
+## Best Practices for Sim-to-Real Transfer
+
+### Pre-Transfer Validation
+
+- Validate simulation models against real robot behavior
+- Test controllers in simulation with realistic noise and delays
+- Use multiple simulation environments to test robustness
+- Implement safety checks before real robot deployment
+
+### Safety Considerations
+
+- Implement safety limits and emergency stops
+- Use position and velocity bounds
+- Monitor for unexpected behaviors
+- Have manual override capability
+
+### Gradual Deployment
+
+- Start with simple behaviors before complex ones
+- Use progressive domain transfer techniques
+- Monitor performance metrics continuously
+- Maintain ability to revert to safe behaviors
+
+## Troubleshooting Common Issues
+
+### Poor Transfer Performance
+
+```python
+def diagnose_transfer_issues(policy, evaluator):
+    """Diagnose common sim-to-real transfer issues"""
+    metrics = evaluator.metrics
+
+    issues = []
+
+    if metrics['transfer_ratio'] < 0.5:
+        issues.append("Poor transfer ratio - reality gap too large")
+
+    if metrics['performance_gap'] > 100:
+        issues.append("Large performance gap between sim and real")
+
+    if metrics['success_rate'] < 0.3:
+        issues.append("Low success rate on real robot")
+
+    return issues
+```
+
+### Instability on Real Robot
+
+- Reduce control gains
+- Add more conservative safety limits
+- Increase sensor noise in simulation
+- Use more robust control techniques
+
+## Summary
+
+Simulation-to-real transfer remains one of the most challenging aspects of humanoid robotics. Success requires careful attention to modeling accuracy, robust control design, and systematic validation. Domain randomization, system identification, and progressive transfer techniques can significantly improve transfer success rates. The key is to systematically address the reality gap through modeling, control design, and validation techniques that bridge the simulation and real worlds.
+
+## Exercises
+
+1. Implement domain randomization for a humanoid walking controller
+2. Design a disturbance observer for a simulated humanoid robot
+3. Evaluate the transfer performance of a learned policy from simulation to a real robot model
+4. Implement a progressive domain transfer strategy for humanoid locomotion
+
+## References
+
+[1] J. Tan et al., "Sim-to-Real: Learning Agile Locomotion For Quadruped Robots," RSS, 2018.
+
+[2] X. B. Peng et al., "Sim-to-Real Transfer of Robotic Control with Dynamics Randomization," ICRA, 2018.
+
+[3] T. P. Lillicrap et al., "Continuous Control with Deep Reinforcement Learning," ICLR, 2016.
+
+[4] M. Andrychowicz et al., "Hindsight Experience Replay," NIPS, 2017.

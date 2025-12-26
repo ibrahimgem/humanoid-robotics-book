@@ -1,0 +1,176 @@
+openapi: 3.0.0
+info:
+  title: RAG AI Chatbot Ingestion API
+  description: API for content ingestion and processing for the RAG AI Chatbot
+  version: 1.0.0
+paths:
+  /api/ingest:
+    post:
+      summary: Ingest and process book content
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestionRequest'
+      responses:
+        '200':
+          description: Content successfully ingested and processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestionResponse'
+        '400':
+          description: Invalid request parameters
+        '500':
+          description: Internal server error
+  /api/ingest/status/{job_id}:
+    get:
+      summary: Get the status of an ingestion job
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The ID of the ingestion job
+      responses:
+        '200':
+          description: Status of the ingestion job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestionStatusResponse'
+        '404':
+          description: Job not found
+        '500':
+          description: Internal server error
+  /api/ingest/sync:
+    post:
+      summary: Synchronize content changes (re-ingest updated content)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncRequest'
+      responses:
+        '200':
+          description: Content synchronization completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncResponse'
+        '400':
+          description: Invalid request parameters
+        '500':
+          description: Internal server error
+components:
+  schemas:
+    IngestionRequest:
+      type: object
+      required:
+        - content_path
+        - document_title
+      properties:
+        content_path:
+          type: string
+          description: Path to the content to be ingested
+          example: "/docs/module-1-introduction-physical-ai/foundations-physical-ai.mdx"
+        document_title:
+          type: string
+          description: Title of the document
+          example: "Foundations of Physical AI"
+        chunk_size:
+          type: integer
+          description: Size of content chunks (in characters)
+          default: 1000
+          example: 1000
+        overlap:
+          type: integer
+          description: Overlap between chunks (in characters)
+          default: 100
+          example: 100
+    IngestionResponse:
+      type: object
+      required:
+        - success
+        - job_id
+        - chunks_processed
+      properties:
+        success:
+          type: boolean
+          description: Whether the ingestion was successful
+          example: true
+        job_id:
+          type: string
+          format: uuid
+          description: ID of the ingestion job for tracking
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        chunks_processed:
+          type: integer
+          description: Number of content chunks processed
+          example: 42
+        documents_processed:
+          type: integer
+          description: Number of documents processed
+          example: 1
+    IngestionStatusResponse:
+      type: object
+      required:
+        - job_id
+        - status
+        - progress
+      properties:
+        job_id:
+          type: string
+          format: uuid
+          description: ID of the ingestion job
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+          description: Current status of the job
+          example: "completed"
+        progress:
+          type: integer
+          description: Progress percentage (0-100)
+          example: 100
+        details:
+          type: string
+          description: Additional details about the job status
+          example: "42 chunks processed successfully"
+    SyncRequest:
+      type: object
+      required:
+        - content_paths
+      properties:
+        content_paths:
+          type: array
+          items:
+            type: string
+          description: List of content paths to synchronize
+          example: ["/docs/module-1-introduction-physical-ai/foundations-physical-ai.mdx"]
+        force_reprocess:
+          type: boolean
+          description: Whether to force reprocessing even if content hasn't changed
+          default: false
+    SyncResponse:
+      type: object
+      required:
+        - success
+        - documents_synced
+      properties:
+        success:
+          type: boolean
+          description: Whether the synchronization was successful
+          example: true
+        documents_synced:
+          type: integer
+          description: Number of documents synchronized
+          example: 1
+        documents_failed:
+          type: integer
+          description: Number of documents that failed to sync
+          example: 0

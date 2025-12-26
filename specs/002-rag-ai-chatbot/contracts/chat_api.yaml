@@ -1,0 +1,142 @@
+openapi: 3.0.0
+info:
+  title: RAG AI Chatbot API
+  description: API for the RAG AI Chatbot integrated with Docusaurus book
+  version: 1.0.0
+paths:
+  /api/chat:
+    post:
+      summary: Submit a query to the chatbot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Successful response from the chatbot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          description: Invalid request parameters
+        '500':
+          description: Internal server error
+  /api/chat/stream:
+    post:
+      summary: Submit a query to the chatbot with streaming response
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Streaming response from the chatbot
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '400':
+          description: Invalid request parameters
+        '500':
+          description: Internal server error
+  /api/query-mode:
+    post:
+      summary: Set the query mode (global or selected-text)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryModeRequest'
+      responses:
+        '200':
+          description: Query mode updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryModeResponse'
+        '400':
+          description: Invalid request parameters
+        '500':
+          description: Internal server error
+components:
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - question
+      properties:
+        question:
+          type: string
+          description: The user's question
+          example: "What is embodied cognition in robotics?"
+        selected_text:
+          type: string
+          description: Optional selected text for selected-text mode
+          example: "Embodied cognition is the theory that cognitive processes are deeply rooted in the body's interactions with the environment."
+        session_id:
+          type: string
+          description: Optional session identifier
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+    ChatResponse:
+      type: object
+      required:
+        - response
+        - sources
+        - query_id
+      properties:
+        response:
+          type: string
+          description: The chatbot's response to the question
+          example: "Embodied cognition in robotics refers to the idea that cognitive processes emerge from the interaction between an agent and its environment..."
+        sources:
+          type: array
+          items:
+            type: string
+          description: List of source documents used in the response
+          example: ["/docs/module-1-introduction-physical-ai/foundations-physical-ai"]
+        query_id:
+          type: string
+          format: uuid
+          description: Unique identifier for the query
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        response_time_ms:
+          type: integer
+          description: Time taken to generate the response in milliseconds
+          example: 1250
+    QueryModeRequest:
+      type: object
+      required:
+        - mode
+      properties:
+        mode:
+          type: string
+          enum: [global, selected_text]
+          description: The query mode to set
+          example: "global"
+        session_id:
+          type: string
+          description: Session identifier
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+    QueryModeResponse:
+      type: object
+      required:
+        - success
+        - mode
+      properties:
+        success:
+          type: boolean
+          description: Whether the mode was set successfully
+          example: true
+        mode:
+          type: string
+          enum: [global, selected_text]
+          description: The current query mode
+          example: "global"

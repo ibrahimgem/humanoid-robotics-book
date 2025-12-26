@@ -214,6 +214,8 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 - Static file storage (GitHub Pages), documentation files in Markdown/MDX forma (001-docusaurus-humanoid-book)
 - Python 3.11+ (for FastAPI backend), JavaScript/TypeScript (for Docusaurus frontend) + FastAPI, OpenAI SDK, Qdrant client, Neon Postgres driver, Reac (002-rag-chatbot)
 - Neon Serverless Postgres (metadata, chat logs), Qdrant Cloud (vector embeddings) (002-rag-chatbot)
+- Python 3.11+ (for FastAPI backend), JavaScript/TypeScript (for Docusaurus frontend) + FastAPI, OpenAI Agents/ChatKit SDK, Qdrant client, Neon Postgres driver, Docusaurus (002-rag-ai-chatbot)
+- Qdrant Cloud (vector storage), Neon Serverless Postgres (metadata, logs), Docusaurus content files (002-rag-ai-chatbot)
 
 ## Recent Changes
 - 001-docusaurus-humanoid-book: Added JavaScript/TypeScript (Node.js 18+), Python (ROS 2 compatible) + Docusaurus (v3.x), React, MDX, Node.js, npm

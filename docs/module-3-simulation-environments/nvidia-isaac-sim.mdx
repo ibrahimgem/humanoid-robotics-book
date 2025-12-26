@@ -1,0 +1,1039 @@
+---
+sidebar_position: 13
+title: Chapter 3.3 - NVIDIA Isaac Sim
+description: Advanced Simulation with NVIDIA Isaac Sim
+---
+
+# Chapter 3.3: NVIDIA Isaac Sim
+
+## Goal
+Master NVIDIA Isaac Sim for photorealistic simulation and AI training.
+
+## Learning Outcomes
+After completing this chapter, students will create high-fidelity simulation environments for AI training.
+
+## Introduction
+
+NVIDIA Isaac Sim represents the cutting edge of robotics simulation technology, leveraging NVIDIA's advanced graphics capabilities and AI expertise to provide photorealistic simulation environments. Built on the Omniverse platform, Isaac Sim offers unparalleled visual fidelity, physically accurate simulation, and powerful tools for AI training and development. For humanoid robotics, Isaac Sim provides the capability to generate synthetic data at scale, train perception systems, and validate complex behaviors in highly realistic environments.
+
+## Isaac Sim Architecture and Capabilities
+
+### Core Architecture
+
+Isaac Sim is built on NVIDIA's Omniverse platform, which provides:
+
+1. **USD-Based Scene Description**: Universal Scene Description for complex scene management
+2. **PhysX Physics Engine**: NVIDIA's advanced physics simulation
+3. **RTX Ray Tracing**: Real-time ray tracing for photorealistic rendering
+4. **AI Training Frameworks**: Integration with NVIDIA's AI development tools
+5. **Omniverse Connectors**: Real-time collaboration and asset streaming
+
+### Key Features for Humanoid Robotics
+
+- **Photorealistic Rendering**: RTX-accelerated rendering for computer vision training
+- **Synthetic Data Generation**: Large-scale dataset creation for AI training
+- **Physically Accurate Simulation**: Advanced physics for realistic robot behavior
+- **Sensor Simulation**: High-fidelity simulation of various sensors
+- **AI Integration**: Direct integration with NVIDIA's AI frameworks
+
+## Setting Up Isaac Sim
+
+### System Requirements
+
+Isaac Sim has demanding hardware requirements:
+
+- **GPU**: NVIDIA RTX series (RTX 3080 or better recommended)
+- **VRAM**: 10GB+ recommended for complex humanoid scenes
+- **CPU**: Multi-core processor (8+ cores)
+- **RAM**: 32GB+ recommended
+- **Storage**: SSD with 100GB+ available space
+
+### Installation Process
+
+Isaac Sim can be installed through several methods:
+
+1. **Isaac Sim Docker**: Containerized installation for consistency
+2. **Isaac Sim Standalone**: Direct installation with Omniverse launcher
+3. **Isaac Sim in Cloud**: NVIDIA GPU Cloud (NGC) deployment
+
+### Basic Setup and Configuration
+
+```python
+# Example Python setup for Isaac Sim
+import omni
+import carb
+import omni.isaac.core.utils.stage as stage_utils
+from omni.isaac.core import World
+from omni.isaac.core.robots import Robot
+from omni.isaac.core.utils.nucleus import get_assets_root_path
+
+# Initialize Isaac Sim
+def setup_isaac_sim():
+    # Get the world instance
+    world = World(stage_units_in_meters=1.0)
+
+    # Set up the stage
+    stage_utils.add_reference_to_stage(
+        get_assets_root_path() + "/Isaac/Robots/Franka/franka_instanceable.usd",
+        "/World/Robot"
+    )
+
+    # Add ground plane
+    stage_utils.add_reference_to_stage(
+        get_assets_root_path() + "/Isaac/Environments/Simple_Room/simple_room.usd",
+        "/World/Room"
+    )
+
+    return world
+```
+
+## Creating Humanoid Robots in Isaac Sim
+
+### Robot Definition Structure
+
+Isaac Sim uses USD (Universal Scene Description) format for robot definitions. A humanoid robot in Isaac Sim typically includes:
+
+```usd
+# Example humanoid robot USD file
+# humanoid_robot.usd
+#usda 1.0
+
+def Xform "World"
+{
+    def Xform "Robot"
+    {
+        # Robot body
+        def Xform "torso"
+        {
+            def Capsule "torso_collision"
+            {
+                double radius = 0.15
+                double height = 0.6
+                # Collision properties
+            }
+
+            def Mesh "torso_visual"
+            {
+                # Visual properties
+            }
+        }
+
+        # Head
+        def Xform "head"
+        {
+            def Sphere "head_collision"
+            {
+                double radius = 0.1
+            }
+        }
+
+        # Limbs defined with joints
+        def Xform "left_arm"
+        {
+            def Xform "shoulder"
+            {
+                # Joint definition
+                def Joint "shoulder_joint"
+                {
+                    # Joint limits and properties
+                }
+            }
+        }
+    }
+}
+```
+
+### Python API for Robot Creation
+
+```python
+import omni
+from omni.isaac.core import World
+from omni.isaac.core.robots import Robot
+from omni.isaac.core.utils.stage import add_reference_to_stage
+from omni.isaac.core.utils.prims import get_prim_at_path
+from pxr import PhysxSchema, UsdPhysics, Gf
+
+class HumanoidRobot(Robot):
+    def __init__(
+        self,
+        prim_path: str,
+        name: str = "humanoid_robot",
+        usd_path: str = None,
+        position: tuple = None,
+        orientation: tuple = None,
+    ) -> None:
+        """Initialize a humanoid robot in Isaac Sim
+
+        Args:
+            prim_path: Path to the robot prim
+            name: Robot name
+            usd_path: Path to the USD file containing the robot definition
+            position: Initial position (x, y, z)
+            orientation: Initial orientation (x, y, z, w) as quaternion
+        """
+        self._usd_path = usd_path
+        self._name = name
+
+        if self._usd_path is not None:
+            add_reference_to_stage(
+                usd_path=self._usd_path,
+                prim_path=prim_path,
+            )
+
+        super().__init__(
+            prim_path=prim_path,
+            name=name,
+            position=position,
+            orientation=orientation,
+        )
+
+    def setup_joints(self):
+        """Setup joint properties for humanoid robot"""
+        # Define joint limits for humanoid joints
+        joint_limits = {
+            "left_hip_joint": (-0.52, 0.52),      # ~30 degrees
+            "left_knee_joint": (0, 2.09),         # ~120 degrees
+            "left_ankle_joint": (-0.52, 0.52),    # ~30 degrees
+            "right_hip_joint": (-0.52, 0.52),
+            "right_knee_joint": (0, 2.09),
+            "right_ankle_joint": (-0.52, 0.52),
+            "left_shoulder_joint": (-1.57, 1.57), # ~90 degrees
+            "left_elbow_joint": (0, 2.35),        # ~135 degrees
+            "right_shoulder_joint": (-1.57, 1.57),
+            "right_elbow_joint": (0, 2.35),
+        }
+
+        for joint_name, (lower, upper) in joint_limits.items():
+            joint_prim = get_prim_at_path(f"{self.prim_path}/{joint_name}")
+            if joint_prim:
+                # Set joint limits
+                PhysxSchema.PhysxJointAPI(joint_prim).CreateLowerLimitAttr().Set(lower)
+                PhysxSchema.PhysxJointAPI(joint_prim).CreateUpperLimitAttr().Set(upper)
+
+    def get_humanoid_state(self):
+        """Get the current state of the humanoid robot"""
+        joint_positions = self.get_joints_state().position
+        joint_velocities = self.get_joints_state().velocity
+        base_pose = self.get_world_pose()
+
+        return {
+            "joint_positions": joint_positions,
+            "joint_velocities": joint_velocities,
+            "base_position": base_pose[0],
+            "base_orientation": base_pose[1],
+            "center_of_mass": self.get_center_of_mass()
+        }
+```
+
+### Advanced Robot Configuration
+
+```python
+import omni
+from omni.isaac.core.utils.stage import add_reference_to_stage
+from omni.isaac.core.utils.prims import set_targets
+from omni.isaac.core.utils.semantics import add_update_semantics
+from pxr import UsdPhysics, PhysxSchema
+
+def create_advanced_humanoid_robot(robot_path, config):
+    """Create a humanoid robot with advanced configuration"""
+
+    # Add robot to stage
+    add_reference_to_stage(
+        usd_path=config["usd_path"],
+        prim_path=robot_path,
+    )
+
+    # Configure physics properties
+    robot_prim = get_prim_at_path(robot_path)
+
+    # Set up rigid body properties
+    rigid_body_api = UsdPhysics.RigidBodyAPI.Apply(robot_prim)
+    rigid_body_api.CreateRigidBodyEnabledAttr(True)
+
+    # Configure PhysX properties
+    physx_rigid_body_api = PhysxSchema.PhysxRigidBodyAPI.Apply(robot_prim)
+    physx_rigid_body_api.CreateSleepThresholdAttr(0.001)
+    physx_rigid_body_api.CreateStabilizationThresholdAttr(0.001)
+
+    # Add semantic labels
+    add_update_semantics(robot_prim, "humanoid_robot")
+
+    # Configure mass properties
+    for link_name in config["links"]:
+        link_path = f"{robot_path}/{link_name}"
+        link_prim = get_prim_at_path(link_path)
+
+        if link_prim:
+            # Set mass properties
+            mass_api = UsdPhysics.MassAPI.Apply(link_prim)
+            mass_api.CreateMassAttr(config["links"][link_name]["mass"])
+
+            # Set center of mass
+            mass_api.CreateCenterOfMassAttr(
+                Gf.Vec3f(*config["links"][link_name]["com"])
+            )
+
+    return robot_prim
+```
+
+## Sensor Simulation in Isaac Sim
+
+### Camera Sensors
+
+Isaac Sim provides high-quality camera simulation with various configurations:
+
+```python
+from omni.isaac.sensor import Camera
+import numpy as np
+
+class HumanoidCameraSensor:
+    def __init__(self, prim_path, config):
+        self.camera = Camera(
+            prim_path=prim_path,
+            frequency=config.get("frequency", 30),
+            resolution=(config["width"], config["height"])
+        )
+
+        # Configure camera properties
+        self.camera.focal_length = config.get("focal_length", 24.0)
+        self.camera.focus_distance = config.get("focus_distance", 10.0)
+        self.camera.f_stop = config.get("f_stop", 0.0)  # 0.0 = disabled
+
+        # Enable different sensor types
+        if config.get("rgb", True):
+            self.camera.add_render_product("rgb")
+
+        if config.get("depth", False):
+            self.camera.add_render_product("depth")
+
+        if config.get("semantic", False):
+            self.camera.add_render_product("semantic_segmentation")
+
+        if config.get("instance", False):
+            self.camera.add_render_product("instance_segmentation")
+
+    def get_rgb_image(self):
+        """Get RGB image from camera"""
+        return self.camera.get_rgb()
+
+    def get_depth_image(self):
+        """Get depth image from camera"""
+        return self.camera.get_depth()
+
+    def get_pose(self):
+        """Get camera pose"""
+        return self.camera.get_world_pose()
+
+# Example usage
+camera_config = {
+    "width": 640,
+    "height": 480,
+    "frequency": 30,
+    "focal_length": 24.0,
+    "rgb": True,
+    "depth": True,
+    "semantic": True
+}
+
+head_camera = HumanoidCameraSensor("/World/Robot/head_camera", camera_config)
+```
+
+### LIDAR Simulation
+
+Isaac Sim includes advanced LIDAR simulation capabilities:
+
+```python
+from omni.isaac.range_sensor import LidarRtx
+import numpy as np
+
+class HumanoidLidarSensor:
+    def __init__(self, prim_path, config):
+        self.lidar = LidarRtx(
+            prim_path=prim_path,
+            translation=config.get("position", (0, 0, 0)),
+            orientation=config.get("orientation", (0, 0, 0, 1)),
+            config_file_name=config.get("config_file", "Example_Rotary_Lidar"),
+            # Custom configuration
+            rotation_frequency=config.get("rotation_freq", 10),
+            channels=config.get("channels", 16),
+            points_per_channel=config.get("points_per_channel", 1000),
+            horizontal_resolution=config.get("horizontal_resolution", 0.1875),
+            vertical_resolution=config.get("vertical_resolution", 2.0),
+            horizontal_laser_angle=config.get("horizontal_angle", 360.0),
+            vertical_laser_angle=config.get("vertical_angle", 30.0),
+            max_range=config.get("max_range", 100.0),
+            min_range=config.get("min_range", 0.1),
+        )
+
+        # Enable noise if specified
+        if config.get("enable_noise", False):
+            self.lidar.enable_noise = True
+            self.lidar.noise_mean = config.get("noise_mean", 0.0)
+            self.lidar.noise_std = config.get("noise_std", 0.01)
+
+    def get_point_cloud(self):
+        """Get point cloud from LIDAR"""
+        return self.lidar.get_point_cloud()
+
+    def get_ranges(self):
+        """Get distance ranges"""
+        return self.lidar.get_linear_depth_data()
+
+    def get_pose(self):
+        """Get LIDAR pose"""
+        return self.lidar.get_world_pose()
+
+# Example configuration
+lidar_config = {
+    "position": (0, 0, 1.5),  # On robot's head
+    "channels": 32,
+    "points_per_channel": 2048,
+    "max_range": 25.0,
+    "enable_noise": True,
+    "noise_std": 0.02
+}
+
+robot_lidar = HumanoidLidarSensor("/World/Robot/lidar", lidar_config)
+```
+
+### IMU and Force/Torque Sensors
+
+```python
+from omni.isaac.core.sensors import ImuSensor
+from omni.isaac.core.utils.prims import get_prim_at_path
+
+class HumanoidImuSensor:
+    def __init__(self, prim_path, link_path, config=None):
+        self.imu = ImuSensor(
+            prim_path=prim_path,
+            frequency=config.get("frequency", 100) if config else 100,
+            visualizes=False
+        )
+
+        # Attach to specified link
+        self.link_path = link_path
+
+    def get_imu_data(self):
+        """Get IMU data including orientation, angular velocity, and linear acceleration"""
+        return {
+            "orientation": self.imu.get_orientation(),
+            "angular_velocity": self.imu.get_angular_velocity(),
+            "linear_acceleration": self.imu.get_linear_acceleration()
+        }
+
+# Create IMU sensors for different parts of the humanoid
+torso_imu = HumanoidImuSensor(
+    "/World/Robot/torso_imu",
+    "/World/Robot/torso",
+    {"frequency": 100}
+)
+
+head_imu = HumanoidImuSensor(
+    "/World/Robot/head_imu",
+    "/World/Robot/head",
+    {"frequency": 100}
+)
+```
+
+## Environment Creation and Management
+
+### USD Scene Composition
+
+Isaac Sim uses USD for scene composition, allowing complex environment creation:
+
+```python
+# Example environment USD file
+# humanoid_environment.usd
+#usda 1.0
+
+def create_humanoid_environment():
+    """Create a complex environment for humanoid robot training"""
+
+    # Ground plane with textures
+    add_reference_to_stage(
+        get_assets_root_path() + "/Isaac/Environments/Grid/default_environment.usd",
+        "/World/defaultGround"
+    )
+
+    # Add furniture for interaction
+    add_reference_to_stage(
+        get_assets_root_path() + "/Isaac/Props/Kitchen/kitchen.usd",
+        "/World/Kitchen"
+    )
+
+    # Add objects for manipulation
+    for i in range(5):
+        add_reference_to_stage(
+            get_assets_root_path() + "/Isaac/Props/Blocks/block_instanceable.usd",
+            f"/World/Block_{i}"
+        )
+
+    # Configure lighting
+    stage = omni.usd.get_context().get_stage()
+    light_prim = stage.DefinePrim("/World/Light", "DistantLight")
+    light_prim.GetAttribute("inputs:intensity").Set(3000)
+    light_prim.GetAttribute("inputs:color").Set((0.9, 0.9, 0.9))
+
+def add_dynamic_objects():
+    """Add dynamic objects that can be manipulated by the humanoid"""
+
+    # Create dynamic objects with different materials
+    objects_config = [
+        {"name": "cup", "path": "/Isaac/Props/Interactable/cup.usd", "count": 3},
+        {"name": "box", "path": "/Isaac/Props/Interactable/box.usd", "count": 2},
+        {"name": "ball", "path": "/Isaac/Props/Interactable/ball.usd", "count": 5}
+    ]
+
+    for obj_config in objects_config:
+        for i in range(obj_config["count"]):
+            add_reference_to_stage(
+                get_assets_root_path() + obj_config["path"],
+                f"/World/{obj_config['name']}_{i}"
+            )
+```
+
+### Procedural Environment Generation
+
+```python
+import random
+import numpy as np
+from omni.isaac.core.utils.stage import add_reference_to_stage
+from omni.isaac.core.utils.transformations import combine_transforms
+
+class ProceduralEnvironment:
+    def __init__(self, world_bounds=(-10, -10, 10, 10)):
+        self.bounds = world_bounds
+        self.objects = []
+
+    def generate_room_layout(self):
+        """Generate a room layout with furniture and obstacles"""
+
+        # Define room dimensions
+        min_x, min_y, max_x, max_y = self.bounds
+
+        # Add walls
+        self._add_walls(min_x, min_y, max_x, max_y)
+
+        # Add furniture
+        furniture_types = [
+            "chair", "table", "shelf", "plant"
+        ]
+
+        for _ in range(8):  # Add 8 pieces of furniture
+            obj_type = random.choice(furniture_types)
+            x = random.uniform(min_x + 1, max_x - 1)
+            y = random.uniform(min_y + 1, max_y - 1)
+
+            self._add_furniture(obj_type, (x, y, 0.0))
+
+    def _add_walls(self, min_x, min_y, max_x, max_y):
+        """Add walls to define the room"""
+        wall_config = {
+            "length": 20.0,
+            "height": 3.0,
+            "thickness": 0.2
+        }
+
+        # Add four walls
+        wall_positions = [
+            ((min_x + max_x) / 2, min_y, wall_config["height"]/2),  # South wall
+            ((min_x + max_x) / 2, max_y, wall_config["height"]/2),  # North wall
+            (min_x, (min_y + max_y) / 2, wall_config["height"]/2),  # West wall
+            (max_x, (min_y + max_y) / 2, wall_config["height"]/2)   # East wall
+        ]
+
+        for i, pos in enumerate(wall_positions):
+            add_reference_to_stage(
+                get_assets_root_path() + "/Isaac/Environments/SmallRoom/small_room.usd",
+                f"/World/Wall_{i}"
+            )
+
+    def _add_furniture(self, obj_type, position):
+        """Add furniture object to the environment"""
+        # This would use specific USD paths for different furniture types
+        if obj_type == "chair":
+            usd_path = get_assets_root_path() + "/Isaac/Props/Furniture/chair.usd"
+        elif obj_type == "table":
+            usd_path = get_assets_root_path() + "/Isaac/Props/Furniture/table.usd"
+        # Add more types as needed
+
+        obj_path = f"/World/{obj_type}_{len(self.objects)}"
+        add_reference_to_stage(usd_path, obj_path)
+
+        # Set position
+        from omni.isaac.core.utils.prims import set_world_translation
+        set_world_translation(np.array(position), obj_path)
+
+        self.objects.append(obj_path)
+
+    def add_lighting_variability(self):
+        """Add lighting variations for domain randomization"""
+        # Add multiple light sources with different properties
+        for i in range(3):
+            light_path = f"/World/DynamicLight_{i}"
+            # Create dynamic light prim
+            stage = omni.usd.get_context().get_stage()
+            light_prim = stage.DefinePrim(light_path, "DistantLight")
+
+            # Randomize properties
+            intensity = random.uniform(1000, 5000)
+            color = (random.uniform(0.8, 1.0), random.uniform(0.8, 1.0), random.uniform(0.8, 1.0))
+
+            light_prim.GetAttribute("inputs:intensity").Set(intensity)
+            light_prim.GetAttribute("inputs:color").Set(color)
+
+# Usage
+env_generator = ProceduralEnvironment()
+env_generator.generate_room_layout()
+env_generator.add_lighting_variability()
+```
+
+## AI Training Integration
+
+### Reinforcement Learning Setup
+
+Isaac Sim provides excellent support for reinforcement learning:
+
+```python
+import torch
+import numpy as np
+from omni.isaac.core import World
+from omgi.isaac.core.utils.types import ArticulationAction
+from pxr import Gf
+
+class HumanoidRLEnvironment:
+    def __init__(self, world: World, robot_path: str):
+        self.world = world
+        self.robot = self.world.scene.get_object(robot_path)
+        self.action_space = self._get_action_space()
+        self.observation_space = self._get_observation_space()
+
+        # RL-specific parameters
+        self.episode_length = 1000  # steps
+        self.current_step = 0
+        self.cumulative_reward = 0.0
+
+    def _get_action_space(self):
+        """Define action space for humanoid robot"""
+        # Actions are joint position targets
+        num_joints = len(self.robot.joint_names)
+        return {
+            "type": "continuous",
+            "shape": (num_joints,),
+            "low": np.full(num_joints, -1.0),   # Normalized joint targets
+            "high": np.full(num_joints, 1.0)
+        }
+
+    def _get_observation_space(self):
+        """Define observation space for humanoid"""
+        obs_size = (
+            3 +  # base position
+            4 +  # base orientation (quaternion)
+            3 +  # base linear velocity
+            3 +  # base angular velocity
+            len(self.robot.joint_names) +  # joint positions
+            len(self.robot.joint_names) +  # joint velocities
+            3    # center of mass offset
+        )
+        return {
+            "shape": (obs_size,),
+            "low": np.full(obs_size, -np.inf),
+            "high": np.full(obs_size, np.inf)
+        }
+
+    def reset(self):
+        """Reset the environment"""
+        self.current_step = 0
+        self.cumulative_reward = 0.0
+
+        # Reset robot to initial pose
+        initial_positions = np.zeros(len(self.robot.joint_names))
+        self.robot.set_joints_state(positions=initial_positions)
+
+        # Add some randomization
+        self._apply_randomization()
+
+        return self.get_observation()
+
+    def step(self, action):
+        """Execute one step in the environment"""
+        # Apply action to robot
+        self._apply_action(action)
+
+        # Step the physics simulation
+        self.world.step(render=True)
+
+        # Get observation
+        observation = self.get_observation()
+
+        # Calculate reward
+        reward = self._calculate_reward()
+        self.cumulative_reward += reward
+
+        # Check if episode is done
+        done = self._is_episode_done()
+
+        # Increment step counter
+        self.current_step += 1
+
+        return observation, reward, done, {}
+
+    def get_observation(self):
+        """Get current observation from the environment"""
+        # Get robot state
+        base_pos, base_orn = self.robot.get_world_pose()
+        base_lin_vel, base_ang_vel = self.robot.get_velocities()
+
+        joint_pos = self.robot.get_joints_state().position
+        joint_vel = self.robot.get_joints_state().velocity
+
+        # Calculate center of mass offset
+        com_pos = self.robot.get_center_of_mass()
+        com_offset = com_pos - base_pos
+
+        # Concatenate all observations
+        obs = np.concatenate([
+            base_pos,           # 3
+            base_orn,           # 4
+            base_lin_vel,       # 3
+            base_ang_vel,       # 3
+            joint_pos,          # n
+            joint_vel,          # n
+            com_offset          # 3
+        ])
+
+        return obs
+
+    def _apply_action(self, action):
+        """Apply action to the robot"""
+        # Convert normalized action to joint positions
+        joint_targets = action * 0.5  # Scale to reasonable range
+
+        # Apply position commands
+        self.robot.set_joints_state(positions=joint_targets)
+
+    def _calculate_reward(self):
+        """Calculate reward based on robot's performance"""
+        # Example reward function - encourage upright posture and forward movement
+        base_pos, base_orn = self.robot.get_world_pose()
+        base_lin_vel, base_ang_vel = self.robot.get_velocities()
+
+        # Reward for staying upright
+        upright_reward = self._calculate_upright_reward(base_orn)
+
+        # Reward for forward movement
+        forward_reward = max(0, base_lin_vel[0])  # Reward for moving forward
+
+        # Penalty for excessive joint velocities
+        joint_vel = self.robot.get_joints_state().velocity
+        velocity_penalty = -0.01 * np.sum(np.square(joint_vel))
+
+        # Penalty for falling
+        fall_penalty = self._calculate_fall_penalty(base_pos)
+
+        total_reward = upright_reward + forward_reward + velocity_penalty + fall_penalty
+        return total_reward
+
+    def _calculate_upright_reward(self, orientation):
+        """Reward for maintaining upright posture"""
+        # Convert quaternion to up vector
+        rotation_matrix = Gf.Matrix3d()
+        rotation_matrix.SetRotateFromQuat(Gf.Quatd(orientation[3], *orientation[:3]))
+
+        # Get the up vector (typically Z-axis in robot frame)
+        up_vector = rotation_matrix.Transform(Gf.Vec3d(0, 0, 1))
+
+        # Reward for being upright (closer to (0,0,1))
+        target_up = np.array([0, 0, 1])
+        up_alignment = np.dot(np.array([up_vector[0], up_vector[1], up_vector[2]]), target_up)
+
+        return max(0, up_alignment)  # Only positive reward
+
+    def _calculate_fall_penalty(self, position):
+        """Penalty for falling down"""
+        # If base height is too low, it means the robot has fallen
+        if position[2] < 0.5:  # Adjust threshold as needed
+            return -100  # Large penalty for falling
+        return 0
+
+    def _is_episode_done(self):
+        """Check if the episode is done"""
+        # Episode ends if robot falls or time limit reached
+        base_pos, _ = self.robot.get_world_pose()
+
+        if self.current_step >= self.episode_length:
+            return True
+
+        # Check if robot has fallen
+        if base_pos[2] < 0.5:
+            return True
+
+        return False
+
+    def _apply_randomization(self):
+        """Apply domain randomization"""
+        # Randomize friction coefficients
+        # Randomize object positions
+        # Randomize lighting conditions
+        pass
+```
+
+### Synthetic Data Generation
+
+```python
+import omni
+from omni.isaac.synthetic_utils import SyntheticDataHelper
+import numpy as np
+import cv2
+from PIL import Image
+
+class SyntheticDataGenerator:
+    def __init__(self, world: World, cameras, config):
+        self.world = world
+        self.cameras = cameras
+        self.config = config
+        self.data_helper = SyntheticDataHelper()
+
+        # Setup for data generation
+        self.setup_synthetic_data_pipeline()
+
+    def setup_synthetic_data_pipeline(self):
+        """Setup the pipeline for synthetic data generation"""
+        # Enable various synthetic data streams
+        for camera in self.cameras:
+            # Enable RGB data
+            camera.add_render_product("rgb")
+
+            # Enable semantic segmentation
+            camera.add_render_product("semantic_segmentation")
+
+            # Enable instance segmentation
+            camera.add_render_product("instance_segmentation")
+
+            # Enable depth data
+            camera.add_render_product("depth")
+
+    def generate_dataset(self, num_samples, output_dir):
+        """Generate synthetic dataset"""
+        import os
+        os.makedirs(output_dir, exist_ok=True)
+
+        for i in range(num_samples):
+            # Randomize environment
+            self.randomize_environment()
+
+            # Step simulation to settle
+            for _ in range(10):
+                self.world.step(render=True)
+
+            # Capture data from all cameras
+            for j, camera in enumerate(self.cameras):
+                # Get RGB image
+                rgb_img = camera.get_rgb()
+
+                # Get semantic segmentation
+                semantic_img = camera.get_semantic_segmentation()
+
+                # Get depth image
+                depth_img = camera.get_depth()
+
+                # Save images
+                self.save_images(rgb_img, semantic_img, depth_img,
+                               f"{output_dir}/sample_{i}_cam_{j}")
+
+            if i % 100 == 0:
+                print(f"Generated {i}/{num_samples} samples")
+
+    def randomize_environment(self):
+        """Apply domain randomization to environment"""
+        # Randomize lighting
+        self.randomize_lighting()
+
+        # Randomize object positions
+        self.randomize_object_positions()
+
+        # Randomize textures
+        self.randomize_textures()
+
+        # Randomize camera parameters
+        self.randomize_camera_params()
+
+    def randomize_lighting(self):
+        """Randomize lighting conditions"""
+        stage = omni.usd.get_context().get_stage()
+
+        # Find all lights in the scene
+        for prim in stage.TraverseAll():
+            if prim.GetTypeName() == "DistantLight":
+                # Randomize intensity
+                intensity = np.random.uniform(1000, 10000)
+                prim.GetAttribute("inputs:intensity").Set(intensity)
+
+                # Randomize color temperature
+                color = (
+                    np.random.uniform(0.8, 1.0),
+                    np.random.uniform(0.8, 1.0),
+                    np.random.uniform(0.8, 1.0)
+                )
+                prim.GetAttribute("inputs:color").Set(color)
+
+    def randomize_object_positions(self):
+        """Randomize positions of objects in the scene"""
+        # This would iterate through objects and apply random position offsets
+        pass
+
+    def save_images(self, rgb, semantic, depth, base_filename):
+        """Save synthetic data images"""
+        # Save RGB image
+        rgb_pil = Image.fromarray(rgb)
+        rgb_pil.save(f"{base_filename}_rgb.png")
+
+        # Save semantic segmentation
+        semantic_pil = Image.fromarray(semantic.astype(np.uint8))
+        semantic_pil.save(f"{base_filename}_semantic.png")
+
+        # Save depth image
+        depth_normalized = ((depth - depth.min()) / (depth.max() - depth.min()) * 255).astype(np.uint8)
+        depth_pil = Image.fromarray(depth_normalized)
+        depth_pil.save(f"{base_filename}_depth.png")
+
+# Example usage for training data generation
+def generate_training_data():
+    # Setup world and robot
+    world = World(stage_units_in_meters=1.0)
+
+    # Add robot and environment
+    # ... (setup code)
+
+    # Create cameras for data collection
+    cameras = [
+        # Head camera
+        Camera(prim_path="/World/Robot/head_camera", resolution=(640, 480)),
+        # Chest camera
+        Camera(prim_path="/World/Robot/chest_camera", resolution=(640, 480))
+    ]
+
+    # Setup synthetic data generator
+    data_gen = SyntheticDataGenerator(world, cameras, {})
+
+    # Generate training dataset
+    data_gen.generate_dataset(num_samples=10000, output_dir="./synthetic_data")
+```
+
+## Performance Optimization
+
+### Scene Optimization Techniques
+
+```python
+def optimize_humanoid_scene(world):
+    """Optimize scene for better performance with humanoid robots"""
+
+    # Reduce physics substeps
+    physics_dt = 1.0 / 60.0  # 60 Hz physics
+    world.get_physics_context().set_simulation_dt(physics_dt)
+
+    # Enable GPU dynamics if available
+    physics_ctx = world.get_physics_context()
+    physics_ctx.enable_gpu_dynamics(True)
+    physics_ctx.set_broadphase_type("GPU")
+
+    # Optimize collision meshes
+    optimize_collision_meshes()
+
+    # Use simplified visual meshes for distant objects
+    setup_level_of_detail()
+
+def optimize_collision_meshes():
+    """Optimize collision meshes for better physics performance"""
+    # Use convex hulls instead of complex meshes for collision
+    # Simplify collision geometry while maintaining physical accuracy
+    pass
+
+def setup_level_of_detail():
+    """Setup level of detail for visual meshes"""
+    # Implement LOD system to reduce rendering load
+    # Switch to simpler meshes when objects are far from cameras
+    pass
+```
+
+### Multi-GPU Configuration
+
+```python
+def setup_multi_gpu_rendering():
+    """Setup multi-GPU rendering for large scenes"""
+
+    # Check for multiple GPUs
+    gpu_count = carb.settings.get_settings().get_as_int("/renderer/oglm_renderer/gpu_count")
+
+    if gpu_count > 1:
+        # Enable multi-GPU rendering
+        carb.settings.get_settings().set_as_bool("/renderer/oglm_renderer/multi_gpu/enabled", True)
+
+        # Configure GPU distribution
+        carb.settings.get_settings().set_as_int("/renderer/oglm_renderer/multi_gpu/primary_gpu", 0)
+        carb.settings.get_settings().set_as_int("/renderer/oglm_renderer/multi_gpu/render_gpu", 1)
+```
+
+## Best Practices for Isaac Sim
+
+### Model Quality
+
+- Use proper mass properties for realistic physics
+- Implement accurate joint limits and friction
+- Use appropriate collision and visual geometries
+- Validate models against real-world robot specifications
+
+### Simulation Quality
+
+- Use appropriate physics parameters for humanoid dynamics
+- Implement proper sensor noise models
+- Apply domain randomization for robust training
+- Validate simulation results against real-world data
+
+### Performance Considerations
+
+- Optimize scene complexity for real-time simulation
+- Use appropriate level of detail for meshes
+- Configure physics parameters for performance vs. accuracy
+- Monitor GPU and CPU utilization
+
+## Troubleshooting Common Issues
+
+### Physics Instability
+
+```python
+# If humanoid robot is unstable in simulation:
+def fix_physics_instability(robot_prim):
+    # Reduce joint damping
+    for joint in robot_prim.GetChildren():
+        if joint.GetTypeName() == "Joint":
+            # Adjust damping parameters
+            joint.GetAttribute("physics:linearDamping").Set(0.1)
+            joint.GetAttribute("physics:angularDamping").Set(0.1)
+```
+
+### Rendering Performance
+
+- Reduce resolution for training phases
+- Use simplified materials and lighting
+- Implement frustum culling for cameras
+- Use occlusion culling for large environments
+
+## Summary
+
+NVIDIA Isaac Sim provides state-of-the-art simulation capabilities for humanoid robotics, combining photorealistic rendering with physically accurate simulation. The platform's integration with AI training frameworks and synthetic data generation tools makes it ideal for developing advanced humanoid robot behaviors. Proper configuration of robots, sensors, and environments is essential for effective simulation and training.
+
+## Exercises
+
+1. Create a humanoid robot model in Isaac Sim with proper physics configuration
+2. Implement a camera system with RGB, depth, and semantic segmentation
+3. Set up a reinforcement learning environment for humanoid locomotion
+4. Generate synthetic training data for perception systems
+
+## References
+
+[1] NVIDIA, "Isaac Sim Documentation," NVIDIA Corporation, 2023.
+
+[2] NVIDIA, "Omniverse Platform Overview," NVIDIA Corporation, 2023.
+
+[3] A. To et al., "Synthetic Data Generation for Robotics using Isaac Sim," NVIDIA Technical Report, 2022.

@@ -56,12 +56,37 @@ const config = {
     ],
   ],
 
+  // Proxy API requests to backend server during development
+  plugins: [
+    function (context, options) {
+      return {
+        name: 'custom-webpack-config',
+        configureWebpack(config, isServer, utils) {
+          if (!isServer) {
+            return {
+              devServer: {
+                proxy: [
+                  {
+                    context: ['/api'],
+                    target: 'http://localhost:8000',
+                    changeOrigin: true,
+                    secure: false,
+                  },
+                ],
+              },
+            };
+          }
+          return {};
+        },
+      };
+    },
+  ],
+
   themes: [
     '@docusaurus/theme-mermaid',
   ],
 
   clientModules: [
-    require.resolve('./src/clientModules/navbarAuth.js'),
   ],
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
@@ -85,11 +110,6 @@ const config = {
             to: '/docs/introduction',
             label: 'Docs',
             position: 'left',
-          },
-          {
-            type: 'html',
-            position: 'right',
-            value: '<div id="navbar-auth-container"></div>',
           },
           {
             href: 'https://github.com/ibrahimgem/humanoid-robotics-book',
@@ -142,7 +162,7 @@ const config = {
       prism: {
         theme: require('prism-react-renderer').themes.github,
         darkTheme: require('prism-react-renderer').themes.dracula,
-        additionalLanguages: ['python', 'yaml', 'bash'],
+        additionalLanguages: ['python', 'yaml', 'bash', 'json', 'javascript', 'jsx', 'tsx', 'typescript'],
       },
     }),
 };

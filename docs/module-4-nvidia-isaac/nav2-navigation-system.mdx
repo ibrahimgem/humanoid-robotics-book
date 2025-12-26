@@ -1,0 +1,1300 @@
+---
+sidebar_position: 18
+title: Chapter 4.3 - Nav2 Navigation System
+description: Navigation Stack for Humanoid Robots
+---
+
+# Chapter 4.3: Nav2 Navigation System
+
+## Goal
+Implement navigation capabilities for humanoid robots using Nav2.
+
+## Learning Outcomes
+After completing this chapter, students will configure and deploy navigation systems for humanoid robots.
+
+## Introduction
+
+Navigation is a critical capability for humanoid robots, enabling autonomous movement in complex environments. The Navigation2 (Nav2) stack represents the latest generation of ROS navigation tools, providing a flexible, behavior-based navigation system designed for modern robotics applications. For humanoid robots, navigation presents unique challenges due to their bipedal locomotion, complex kinematics, and specific environmental requirements. This chapter explores how to configure and implement Nav2 for humanoid robotics applications, addressing the specific requirements and constraints of bipedal navigation.
+
+## Nav2 Architecture Overview
+
+### Core Components
+
+Nav2 is built around a behavior-based architecture that provides flexibility and modularity:
+
+1. **Navigation Server**: The central orchestrator that manages navigation behaviors
+2. **Behavior Trees**: Define the logic and flow of navigation tasks
+3. **Planners**: Global and local path planning algorithms
+4. **Controllers**: Trajectory generation and tracking
+5. **Recovery Behaviors**: Actions to take when navigation fails
+6. **Lifecycle Manager**: Manages the state of navigation components
+
+### Behavior-Based Architecture
+
+Nav2 uses behavior trees to define navigation logic, allowing for complex decision-making and recovery strategies:
+
+```xml
+<!-- Example behavior tree for humanoid navigation -->
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <PipelineSequence name="NavigateWithReplanning">
+      <RateController hz="1">
+        <RecoveryNode number_of_retries="6" name="NavigateRecovery">
+          <PipelineSequence name="NavigateWithSmoothing">
+            <GoalUpdater input_port="goal" output_port="goal">
+              <Smoothing input_port="path" output_port="path">
+                <ComputePathToPose input_port="goal" output_port="path"/>
+              </Smoothing>
+            </GoalUpdater>
+            <RecoveryNode number_of_retries="2" name="FollowPathRecovery">
+              <FollowPath input_port="path"/>
+              <ReactiveFallback name="FollowPathWithRecovery">
+                <IsPathValid input_port="path"/>
+                <RecoveryNode number_of_retries="2" name="ClearingRotation">
+                  <ClearEntireCostmap name="ClearLocalCostmap" service_name="local_costmap/clear_entirely_local_costmap"/>
+                  <Spin spin_dist="1.57"/>
+                </RecoveryNode>
+              </ReactiveFallback>
+            </RecoveryNode>
+          </PipelineSequence>
+          <ReactiveFallback name="RecoveryFallback">
+            <GoalUpdated/>
+            <RecoveryNode number_of_retries="2" name="BackUpRecovery">
+              <ClearEntireCostmap name="ClearGlobalCostmap" service_name="global_costmap/clear_entirely_global_costmap"/>
+              <BackUp backup_dist="0.15" backup_speed="0.025"/>
+            </RecoveryNode>
+          </ReactiveFallback>
+        </RecoveryNode>
+      </RateController>
+    </PipelineSequence>
+  </BehaviorTree>
+</root>
+```
+
+### Navigation States
+
+Nav2 operates through various states that define the current navigation behavior:
+
+- **IDLE**: Navigation server is ready but not executing
+- **NAVIGATING**: Following a path to a goal
+- **REPLANNING**: Adjusting the path based on new information
+- **CONTROLLING**: Tracking the current trajectory
+- **RECOVERING**: Executing recovery behaviors
+- **COMPLETING**: Approaching the final goal
+- **CANCELLING**: Stopping the current navigation task
+
+## Nav2 Configuration for Humanoid Robots
+
+### Parameter Configuration
+
+Nav2 requires extensive parameter configuration, especially for humanoid robots with unique kinematics:
+
+```yaml
+# nav2_params_humanoid.yaml
+amcl:
+  ros__parameters:
+    use_sim_time: True
+    alpha1: 0.2
+    alpha2: 0.2
+    alpha3: 0.2
+    alpha4: 0.2
+    alpha5: 0.2
+    base_frame_id: "base_link"
+    beam_skip_distance: 0.5
+    beam_skip_error_threshold: 0.9
+    beam_skip_threshold: 0.3
+    do_beamskip: false
+    global_frame_id: "map"
+    lambda_short: 0.1
+    laser_likelihood_max_dist: 2.0
+    laser_max_range: 100.0
+    laser_min_range: -1.0
+    laser_model_type: "likelihood_field"
+    max_beams: 60
+    max_particles: 2000
+    min_particles: 500
+    odom_frame_id: "odom"
+    pf_err: 0.05
+    pf_z: 0.99
+    recovery_alpha_fast: 0.0
+    recovery_alpha_slow: 0.0
+    resample_interval: 1
+    robot_model_type: "nav2_amcl::DifferentialMotionModel"
+    save_pose_rate: 0.5
+    set_initial_pose: true
+    sigma_hit: 0.2
+    tf_broadcast: true
+    transform_tolerance: 1.0
+    update_min_a: 0.2
+    update_min_d: 0.2
+    z_hit: 0.5
+    z_max: 0.05
+    z_rand: 0.5
+    z_short: 0.05
+    scan_topic: scan
+
+amcl_map_client:
+  ros__parameters:
+    use_sim_time: True
+
+amcl_rclcpp_node:
+  ros__parameters:
+    use_sim_time: True
+
+bt_navigator:
+  ros__parameters:
+    use_sim_time: True
+    global_frame: map
+    robot_base_frame: base_link
+    odom_topic: /odom
+    bt_loop_duration: 10
+    default_server_timeout: 20
+    enable_groot_monitoring: True
+    groot_zmq_publisher_port: 1666
+    groot_zmq_server_port: 1667
+    # Humanoid-specific behavior tree
+    default_nav_through_poses_bt_xml: /opt/ros/humble/share/nav2_bt_navigator/behavior_trees/navigate_w_replanning_and_recovery_humanoid.xml
+    default_nav_to_pose_bt_xml: /opt/ros/humble/share/nav2_bt_navigator/behavior_trees/navigate_w_replanning_and_recovery_humanoid.xml
+
+bt_navigator_rclcpp_node:
+  ros__parameters:
+    use_sim_time: True
+
+controller_server:
+  ros__parameters:
+    use_sim_time: True
+    controller_frequency: 20.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.5
+    min_theta_velocity_threshold: 0.001
+    # Humanoid-specific controller
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugin: "goal_checker"
+    controller_plugins: ["FollowPath"]
+
+    # Humanoid-specific controller configuration
+    FollowPath:
+      plugin: "nav2_mppi_controller::MPPIController"
+      time_steps: 50
+      model_dt: 0.05
+      batch_size: 1000
+      vx_std: 0.2
+      vy_std: 0.1
+      wz_std: 0.3
+      vx_max: 0.5
+      vx_min: -0.2
+      vy_max: 0.3
+      wz_max: 0.5
+      sim_period: 0.05
+      penalty_dt: 0.1
+      # Humanoid-specific cost parameters
+      goal_angle_tolerance: 0.1
+      goal_position_tolerance: 0.2
+      xy_goal_tolerance: 0.3  # Larger for humanoid balance
+      trans_stopped_velocity: 0.25
+      theta_stopped_velocity: 0.25
+      stateful: True
+      critics: ["BaseObstacleCritic", "GoalCritic", "PathAlignCritic", "PreferForwardCritic"]
+
+controller_server_rclcpp_node:
+  ros__parameters:
+    use_sim_time: True
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      update_frequency: 5.0
+      publish_frequency: 2.0
+      global_frame: odom
+      robot_base_frame: base_link
+      use_sim_time: True
+      rolling_window: true
+      width: 6
+      height: 6
+      resolution: 0.05  # Higher resolution for humanoid precision
+      robot_radius: 0.3  # Humanoid radius
+      plugins: ["voxel_layer", "inflation_layer"]
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 3.0
+        inflation_radius: 0.55
+      voxel_layer:
+        plugin: "nav2_costmap_2d::VoxelLayer"
+        enabled: True
+        publish_voxel_map: True
+        origin_z: 0.0
+        z_resolution: 0.2
+        z_voxels: 8
+        max_obstacle_height: 2.0
+        mark_threshold: 0
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          raytrace_max_range: 3.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 2.5
+          obstacle_min_range: 0.0
+  local_costmap_client:
+    ros__parameters:
+      use_sim_time: True
+  local_costmap_rclcpp_node:
+    ros__parameters:
+      use_sim_time: True
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      update_frequency: 1.0
+      publish_frequency: 1.0
+      global_frame: map
+      robot_base_frame: base_link
+      use_sim_time: True
+      robot_radius: 0.3  # Humanoid radius
+      resolution: 0.05  # Higher resolution for humanoid navigation
+      track_unknown_space: false
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          raytrace_max_range: 3.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 2.5
+          obstacle_min_range: 0.0
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: True
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 3.0
+        inflation_radius: 0.55
+  global_costmap_client:
+    ros__parameters:
+      use_sim_time: True
+  global_costmap_rclcpp_node:
+    ros__parameters:
+      use_sim_time: True
+
+map_server:
+  ros__parameters:
+    use_sim_time: True
+    yaml_filename: "turtlebot3_world.yaml"
+
+map_saver:
+  ros__parameters:
+    use_sim_time: True
+    save_map_timeout: 5.0
+    free_thresh_default: 0.25
+    occupied_thresh_default: 0.65
+
+planner_server:
+  ros__parameters:
+    expected_planner_frequency: 20.0
+    use_sim_time: True
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_navfn_planner::NavfnPlanner"
+      tolerance: 0.5  # Humanoid tolerance
+      use_astar: false
+      allow_unknown: true
+
+planner_server_rclcpp_node:
+  ros__parameters:
+    use_sim_time: True
+
+smoother_server:
+  ros__parameters:
+    use_sim_time: True
+    smoother_plugins: ["simple_smoother"]
+    simple_smoother:
+      plugin: "nav2_smoother::SimpleSmoother"
+      tolerance: 1.0e-10
+      max_its: 1000
+      do_refinement: True
+
+behavior_server:
+  ros__parameters:
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+    behavior_plugins: ["spin", "backup", "drive_on_heading", "wait"]
+    spin:
+      plugin: "nav2_behaviors::Spin"
+      spin_dist: 1.57
+      linear_steps: 10
+      max_angular_accel: 3.2
+      max_angular_vel: 1.0
+    backup:
+      plugin: "nav2_behaviors::BackUp"
+      backup_dist: 0.15
+      backup_speed: 0.025
+      sim_time: 2.0
+      linear_accel: 1.0
+      threshold_dist: 0.01
+    drive_on_heading:
+      plugin: "nav2_behaviors::DriveOnHeading"
+      sim_time: 5.0
+      linear_vel: 0.2
+      angular_vel: 1.0
+      tolerance: 0.5
+      use_small_path: true
+      target_x: 0.0
+      target_y: 0.0
+    wait:
+      plugin: "nav2_behaviors::Wait"
+      wait_duration: 1.0
+
+waypoint_follower:
+  ros__parameters:
+    loop_rate: 20
+    stop_on_failure: false
+    waypoint_task_executor_plugin: "wait_at_waypoint"
+    wait_at_waypoint:
+      plugin: "nav2_waypoint_follower::WaitAtWaypoint"
+      enabled: true
+      waypoint_pause_duration: 200
+```
+
+### Humanoid-Specific Navigation Parameters
+
+For humanoid robots, special parameters are needed to account for their unique characteristics:
+
+```yaml
+# humanoid_nav2_params.yaml
+controller_server:
+  ros__parameters:
+    # Humanoid-specific velocity constraints
+    max_linear_velocity: 0.3      # Slower for balance
+    max_angular_velocity: 0.4     # Controlled turning
+    min_linear_velocity: 0.05     # Minimum for stability
+    min_angular_velocity: 0.05
+
+    # Humanoid-specific tolerances
+    xy_goal_tolerance: 0.4        # Larger tolerance for balance
+    yaw_goal_tolerance: 0.2       # Angular tolerance
+
+    # Balance-aware navigation
+    max_vel_x: 0.3
+    min_vel_x: 0.05
+    max_vel_theta: 0.4
+    min_vel_theta: 0.05
+
+    # Humanoid-specific acceleration limits
+    acc_lim_x: 0.5
+    acc_lim_theta: 0.5
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      # Humanoid-specific footprint
+      robot_radius: 0.35          # Larger for humanoid safety
+      footprint_padding: 0.1      # Extra padding for balance
+
+      # Higher resolution for precise navigation
+      resolution: 0.025           # Finer resolution
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      # Humanoid-specific parameters
+      robot_radius: 0.35
+      resolution: 0.05
+      # Include passable stairs and slopes
+      track_unknown_space: true
+```
+
+## Path Planning for Humanoid Robots
+
+### Global Path Planning
+
+Humanoid robots require special considerations for global path planning due to their bipedal nature:
+
+```python
+import rclpy
+from rclpy.node import Node
+from nav_msgs.msg import Path
+from geometry_msgs.msg import PoseStamped
+from builtin_interfaces.msg import Time
+import numpy as np
+
+class HumanoidPathPlanner(Node):
+    def __init__(self):
+        super().__init__('humanoid_path_planner')
+
+        # Publisher for planned path
+        self.path_pub = self.create_publisher(Path, 'humanoid_plan', 10)
+
+        # Subscription for goal poses
+        self.goal_sub = self.create_subscription(
+            PoseStamped,
+            'goal_pose',
+            self.goal_callback,
+            10
+        )
+
+        # Costmap for humanoid-specific navigation
+        self.humanoid_costmap = HumanoidCostmap()
+
+        # Path planning algorithm
+        self.planner = HumanoidAStarPlanner()
+
+    def goal_callback(self, goal_msg):
+        """Handle navigation goal for humanoid robot"""
+        # Get current robot pose
+        current_pose = self.get_current_pose()
+
+        # Plan path considering humanoid constraints
+        path = self.plan_humanoid_path(current_pose, goal_msg.pose)
+
+        # Publish the planned path
+        self.publish_path(path)
+
+    def plan_humanoid_path(self, start_pose, goal_pose):
+        """Plan path considering humanoid-specific constraints"""
+        # Consider step height limitations
+        # Consider slope limitations
+        # Consider balance constraints
+
+        # Use costmap that accounts for humanoid capabilities
+        humanoid_costmap = self.humanoid_costmap.get_costmap()
+
+        # Plan path using humanoid-aware algorithm
+        path = self.planner.plan(
+            start_pose,
+            goal_pose,
+            humanoid_costmap,
+            step_height_limit=0.15,  # Humanoid step height
+            slope_limit=20.0         # Maximum slope in degrees
+        )
+
+        return path
+
+    def get_current_pose(self):
+        """Get current robot pose from localization"""
+        # This would typically come from AMCL or other localization
+        pass
+
+    def publish_path(self, path):
+        """Publish planned path with proper header"""
+        path_msg = Path()
+        path_msg.header.stamp = self.get_clock().now().to_msg()
+        path_msg.header.frame_id = 'map'
+
+        for pose in path:
+            pose_stamped = PoseStamped()
+            pose_stamped.header.stamp = Time()
+            pose_stamped.header.frame_id = 'map'
+            pose_stamped.pose = pose
+            path_msg.poses.append(pose_stamped)
+
+        self.path_pub.publish(path_msg)
+
+class HumanoidCostmap:
+    def __init__(self):
+        # Initialize costmap with humanoid-specific constraints
+        self.step_height_threshold = 0.15  # Maximum step height
+        self.slope_threshold = 20.0        # Maximum slope in degrees
+        self.min_passage_width = 0.6       # Minimum passage width for humanoid
+
+    def get_costmap(self):
+        """Generate costmap considering humanoid constraints"""
+        # This would integrate with Nav2 costmap but add humanoid-specific costs
+        # - Areas with steps higher than threshold
+        # - Areas with slopes steeper than threshold
+        # - Narrow passages
+        # - Areas requiring complex balance
+        pass
+
+class HumanoidAStarPlanner:
+    def __init__(self):
+        # Initialize A* planner with humanoid constraints
+        pass
+
+    def plan(self, start, goal, costmap, step_height_limit, slope_limit):
+        """Plan path using A* with humanoid constraints"""
+        # Implement A* search that considers humanoid-specific costs
+        # - Step height costs
+        # - Slope costs
+        # - Balance requirement costs
+        # - Foot placement costs
+        pass
+```
+
+### Local Path Planning and Obstacle Avoidance
+
+```python
+import numpy as np
+from geometry_msgs.msg import Twist
+from sensor_msgs.msg import LaserScan
+from visualization_msgs.msg import MarkerArray
+
+class HumanoidLocalPlanner:
+    def __init__(self):
+        self.obstacle_threshold = 0.5  # Minimum distance to obstacles
+        self.humanoid_width = 0.6      # Width of humanoid robot
+        self.step_size = 0.1           # Size of each step for planning
+
+        # For real-time obstacle avoidance
+        self.laser_data = None
+        self.current_velocity = Twist()
+
+    def update_laser_data(self, laser_msg):
+        """Update laser scan data for obstacle detection"""
+        self.laser_data = laser_msg
+
+    def compute_velocity_commands(self, global_path, current_pose, current_vel):
+        """Compute velocity commands considering obstacles and path following"""
+        if self.laser_data is None:
+            return Twist()  # No sensor data, stop
+
+        # Check for immediate obstacles
+        if self.detect_immediate_obstacles():
+            # Emergency stop or slow down
+            cmd_vel = self.emergency_stop()
+        else:
+            # Follow path with obstacle avoidance
+            cmd_vel = self.follow_path_with_obstacle_avoidance(
+                global_path, current_pose, current_vel
+            )
+
+        return cmd_vel
+
+    def detect_immediate_obstacles(self):
+        """Detect obstacles in immediate vicinity"""
+        if self.laser_data is None:
+            return False
+
+        # Check if any obstacles are within safety threshold
+        min_distance = min(self.laser_data.ranges)
+        return min_distance < self.obstacle_threshold
+
+    def emergency_stop(self):
+        """Generate emergency stop command"""
+        cmd_vel = Twist()
+        cmd_vel.linear.x = 0.0
+        cmd_vel.angular.z = 0.0
+        return cmd_vel
+
+    def follow_path_with_obstacle_avoidance(self, global_path, current_pose, current_vel):
+        """Follow global path while avoiding obstacles"""
+        # Get next waypoint from global path
+        next_waypoint = self.get_next_waypoint(global_path, current_pose)
+
+        # Calculate desired direction to waypoint
+        desired_direction = self.calculate_desired_direction(
+            current_pose, next_waypoint
+        )
+
+        # Check for obstacles in desired direction
+        obstacle_direction = self.check_obstacle_direction(desired_direction)
+
+        # Generate velocity command
+        cmd_vel = Twist()
+        if obstacle_direction is None:
+            # No obstacles in desired direction, move toward waypoint
+            cmd_vel.linear.x = self.calculate_linear_velocity(
+                current_pose, next_waypoint
+            )
+            cmd_vel.angular.z = self.calculate_angular_velocity(
+                current_pose, next_waypoint
+            )
+        else:
+            # Obstacle detected, adjust for avoidance
+            cmd_vel = self.avoid_obstacle(obstacle_direction, desired_direction)
+
+        # Apply humanoid-specific velocity limits
+        cmd_vel = self.apply_humanoid_constraints(cmd_vel)
+
+        return cmd_vel
+
+    def check_obstacle_direction(self, desired_direction):
+        """Check if obstacles exist in desired movement direction"""
+        if self.laser_data is None:
+            return None
+
+        # Convert desired direction to laser frame and check corresponding angles
+        # Return direction of obstacle if detected
+        pass
+
+    def avoid_obstacle(self, obstacle_dir, desired_dir):
+        """Generate command to avoid obstacle"""
+        cmd_vel = Twist()
+
+        # Simple obstacle avoidance: turn away from obstacle
+        # More sophisticated methods would use potential fields or DWA
+        cmd_vel.angular.z = 0.3 if obstacle_dir > 0 else -0.3
+        cmd_vel.linear.x = 0.1  # Move slowly while turning
+
+        return cmd_vel
+
+    def apply_humanoid_constraints(self, cmd_vel):
+        """Apply humanoid-specific velocity and acceleration constraints"""
+        # Apply maximum velocity limits
+        cmd_vel.linear.x = max(min(cmd_vel.linear.x, 0.3), -0.1)  # Forward: 0.3, backward: 0.1
+        cmd_vel.angular.z = max(min(cmd_vel.angular.z, 0.4), -0.4)  # Angular: ±0.4
+
+        # Apply acceleration limits
+        # This would consider current velocity and desired acceleration
+        return cmd_vel
+```
+
+## Navigation Controllers for Humanoid Robots
+
+### Humanoid-Aware Trajectory Controller
+
+```python
+from geometry_msgs.msg import Twist, PoseStamped
+from nav_msgs.msg import Path
+from tf2_ros import TransformListener, Buffer
+import numpy as np
+from scipy.spatial.transform import Rotation as R
+
+class HumanoidTrajectoryController:
+    def __init__(self):
+        # PID controller parameters
+        self.kp_linear = 1.0
+        self.ki_linear = 0.1
+        self.kd_linear = 0.05
+
+        self.kp_angular = 2.0
+        self.ki_angular = 0.1
+        self.kd_angular = 0.1
+
+        # Error integrals for PID
+        self.linear_error_integral = 0.0
+        self.angular_error_integral = 0.0
+
+        self.previous_linear_error = 0.0
+        self.previous_angular_error = 0.0
+
+        # Humanoid-specific parameters
+        self.max_linear_vel = 0.3
+        self.max_angular_vel = 0.4
+        self.min_linear_vel = 0.02  # Minimum for stability
+        self.min_angular_vel = 0.05
+
+        # Lookahead distance for path following
+        self.lookahead_dist = 0.5
+
+        # Balance constraints
+        self.balance_threshold = 0.1  # Maximum deviation from nominal pose
+
+    def follow_path(self, path, current_pose, current_velocity):
+        """Follow the given path with humanoid-aware control"""
+        if len(path.poses) == 0:
+            return Twist()  # No path to follow
+
+        # Find closest point on path
+        closest_idx = self.find_closest_point(path, current_pose)
+
+        # Get lookahead point
+        lookahead_point = self.get_lookahead_point(path, current_pose, closest_idx)
+
+        if lookahead_point is None:
+            return Twist()  # Can't find valid lookahead point
+
+        # Calculate control commands
+        cmd_vel = self.calculate_control(current_pose, lookahead_point, current_velocity)
+
+        # Apply humanoid constraints
+        cmd_vel = self.apply_humanoid_constraints(cmd_vel)
+
+        # Check balance requirements
+        if not self.check_balance_feasibility(cmd_vel):
+            # Reduce speed to maintain balance
+            cmd_vel.linear.x *= 0.5
+            cmd_vel.angular.z *= 0.5
+
+        return cmd_vel
+
+    def find_closest_point(self, path, current_pose):
+        """Find the closest point on path to current pose"""
+        min_dist = float('inf')
+        closest_idx = 0
+
+        for i, pose in enumerate(path.poses):
+            dist = self.calculate_distance(current_pose.pose, pose.pose)
+            if dist < min_dist:
+                min_dist = dist
+                closest_idx = i
+
+        return closest_idx
+
+    def get_lookahead_point(self, path, current_pose, start_idx):
+        """Get point ahead on path for path following"""
+        current_pos = np.array([
+            current_pose.pose.position.x,
+            current_pose.pose.position.y
+        ])
+
+        for i in range(start_idx, len(path.poses)):
+            path_pos = np.array([
+                path.poses[i].pose.position.x,
+                path.poses[i].pose.position.y
+            ])
+
+            dist = np.linalg.norm(path_pos - current_pos)
+
+            if dist >= self.lookahead_dist:
+                return path.poses[i].pose
+
+        # If no point is far enough, return the last point
+        if len(path.poses) > 0:
+            return path.poses[-1].pose
+
+        return None
+
+    def calculate_control(self, current_pose, target_pose, current_velocity):
+        """Calculate linear and angular velocities using PID control"""
+        # Calculate errors
+        linear_error, angular_error = self.calculate_errors(
+            current_pose, target_pose
+        )
+
+        # Update error integrals
+        self.linear_error_integral += linear_error
+        self.angular_error_integral += angular_error
+
+        # Calculate derivatives
+        linear_error_derivative = linear_error - self.previous_linear_error
+        angular_error_derivative = angular_error - self.previous_angular_error
+
+        # Calculate control outputs
+        linear_vel = (
+            self.kp_linear * linear_error +
+            self.ki_linear * self.linear_error_integral +
+            self.kd_linear * linear_error_derivative
+        )
+
+        angular_vel = (
+            self.kp_angular * angular_error +
+            self.ki_angular * self.angular_error_integral +
+            self.kd_angular * angular_error_derivative
+        )
+
+        # Create command
+        cmd_vel = Twist()
+        cmd_vel.linear.x = linear_vel
+        cmd_vel.angular.z = angular_vel
+
+        # Update previous errors
+        self.previous_linear_error = linear_error
+        self.previous_angular_error = angular_error
+
+        return cmd_vel
+
+    def calculate_errors(self, current_pose, target_pose):
+        """Calculate linear and angular errors"""
+        # Current position
+        curr_x = current_pose.pose.position.x
+        curr_y = current_pose.pose.position.y
+
+        # Current orientation
+        curr_quat = [
+            current_pose.pose.orientation.x,
+            current_pose.pose.orientation.y,
+            current_pose.pose.orientation.z,
+            current_pose.pose.orientation.w
+        ]
+        curr_yaw = self.quaternion_to_yaw(curr_quat)
+
+        # Target position
+        target_x = target_pose.position.x
+        target_y = target_pose.position.y
+
+        # Calculate distance error
+        dx = target_x - curr_x
+        dy = target_y - curr_y
+        linear_error = np.sqrt(dx*dx + dy*dy)
+
+        # Calculate heading error
+        target_angle = np.arctan2(dy, dx)
+        angular_error = self.normalize_angle(target_angle - curr_yaw)
+
+        return linear_error, angular_error
+
+    def apply_humanoid_constraints(self, cmd_vel):
+        """Apply humanoid-specific constraints to velocity commands"""
+        # Limit linear velocity
+        cmd_vel.linear.x = max(
+            min(cmd_vel.linear.x, self.max_linear_vel),
+            -self.max_linear_vel * 0.5  # Allow slower backward movement
+        )
+
+        # Ensure minimum velocity for stability
+        if abs(cmd_vel.linear.x) < self.min_linear_vel and cmd_vel.linear.x != 0:
+            cmd_vel.linear.x = (self.min_linear_vel if cmd_vel.linear.x > 0
+                                else -self.min_linear_vel)
+
+        # Limit angular velocity
+        cmd_vel.angular.z = max(
+            min(cmd_vel.angular.z, self.max_angular_vel),
+            -self.max_angular_vel
+        )
+
+        # Ensure minimum angular velocity
+        if abs(cmd_vel.angular.z) < self.min_angular_vel and cmd_vel.angular.z != 0:
+            cmd_vel.angular.z = (self.min_angular_vel if cmd_vel.angular.z > 0
+                                 else -self.min_angular_vel)
+
+        return cmd_vel
+
+    def check_balance_feasibility(self, cmd_vel):
+        """Check if the velocity command is balance-feasible for humanoid"""
+        # This is a simplified check - in reality, would involve
+        # complex balance stability analysis
+        linear_speed = abs(cmd_vel.linear.x)
+        angular_speed = abs(cmd_vel.angular.z)
+
+        # Simple heuristic: higher speeds require more balance control
+        combined_speed = linear_speed + angular_speed * 0.5
+        return combined_speed <= 0.5  # Threshold for balance feasibility
+
+    def quaternion_to_yaw(self, quat):
+        """Convert quaternion to yaw angle"""
+        # Convert quaternion to yaw (z-axis rotation)
+        sinr_cosp = 2 * (quat[3] * quat[2] + quat[0] * quat[1])
+        cosr_cosp = 1 - 2 * (quat[1] * quat[1] + quat[2] * quat[2])
+        return np.arctan2(sinr_cosp, cosr_cosp)
+
+    def normalize_angle(self, angle):
+        """Normalize angle to [-pi, pi] range"""
+        while angle > np.pi:
+            angle -= 2 * np.pi
+        while angle < -np.pi:
+            angle += 2 * np.pi
+        return angle
+```
+
+### Footstep Planning for Humanoid Navigation
+
+```python
+class HumanoidFootstepPlanner:
+    def __init__(self):
+        self.step_length = 0.3    # Distance between footsteps
+        self.step_width = 0.2     # Lateral distance between feet
+        self.max_step_height = 0.15  # Maximum step height
+
+    def plan_footsteps(self, path, current_pose):
+        """Plan footstep locations along the navigation path"""
+        footsteps = []
+
+        # Start with current pose
+        current_pos = [current_pose.pose.position.x,
+                      current_pose.pose.position.y,
+                      current_pose.pose.position.z]
+
+        # Iterate through path and generate footsteps
+        for i in range(1, len(path.poses)):
+            target_pos = [path.poses[i].pose.position.x,
+                         path.poses[i].pose.position.y,
+                         path.poses[i].pose.position.z]
+
+            # Generate footsteps between current and target positions
+            steps = self.generate_steps(current_pos, target_pos)
+            footsteps.extend(steps)
+
+            current_pos = target_pos
+
+        return footsteps
+
+    def generate_steps(self, start_pos, end_pos):
+        """Generate intermediate footsteps between two positions"""
+        steps = []
+
+        # Calculate direction vector
+        direction = np.array(end_pos) - np.array(start_pos)
+        distance = np.linalg.norm(direction[:2])  # 2D distance
+
+        if distance < self.step_length:
+            # Direct step to target
+            steps.append(end_pos)
+        else:
+            # Generate multiple steps
+            num_steps = int(distance / self.step_length)
+            step_vector = direction / num_steps
+
+            for i in range(1, num_steps + 1):
+                step_pos = start_pos + step_vector * i
+                steps.append(step_pos.tolist())
+
+        return steps
+```
+
+## Integration with Isaac Sim Navigation
+
+### Isaac Sim Navigation Setup
+
+```python
+from omni.isaac.core import World
+from omni.isaac.core.utils.stage import add_reference_to_stage
+from omni.isaac.core.utils.nucleus import get_assets_root_path
+from omni.isaac.navigation.scripts import nav_core
+
+class IsaacSimNavigationManager:
+    def __init__(self):
+        self.world = None
+        self.navigation_map = None
+        self.nav_goal_publisher = None
+        self.nav_path_subscriber = None
+
+    def setup_navigation_environment(self):
+        """Setup Isaac Sim environment with navigation capabilities"""
+        # Initialize Isaac Sim world
+        self.world = World(stage_units_in_meters=1.0)
+
+        # Add navigation-relevant assets
+        assets_root_path = get_assets_root_path()
+
+        # Add ground plane
+        add_reference_to_stage(
+            assets_root_path + "/Isaac/Environments/Grid/default_environment.usd",
+            "/World/defaultGround"
+        )
+
+        # Add navigation-relevant objects
+        self.add_navigation_features()
+
+        # Setup navigation system
+        self.setup_nav_core()
+
+    def add_navigation_features(self):
+        """Add navigation-relevant features to the environment"""
+        # Add landmarks for localization
+        self.add_landmarks()
+
+        # Add navigation goals
+        self.add_navigation_goals()
+
+        # Add obstacles
+        self.add_dynamic_obstacles()
+
+    def add_landmarks(self):
+        """Add visual landmarks for robot localization"""
+        # Add distinctive objects that can be used for localization
+        landmark_configs = [
+            {"type": "cylinder", "position": [5, 0, 1], "name": "landmark_1"},
+            {"type": "box", "position": [-5, 3, 1], "name": "landmark_2"},
+            {"type": "sphere", "position": [0, -5, 1], "name": "landmark_3"}
+        ]
+
+        for config in landmark_configs:
+            add_reference_to_stage(
+                self.get_asset_path(config["type"]),
+                f"/World/Landmarks/{config['name']}"
+            )
+
+    def setup_nav_core(self):
+        """Setup navigation core system in Isaac Sim"""
+        # This would typically involve setting up the navigation mesh
+        # and other Isaac Sim navigation components
+        pass
+
+    def setup_ros_bridge_for_navigation(self):
+        """Setup ROS bridge for navigation communication"""
+        # Setup publishers and subscribers for navigation
+        # This connects Isaac Sim navigation to ROS Nav2
+        pass
+```
+
+### Navigation in Simulation
+
+```python
+class IsaacSimNavigationController:
+    def __init__(self, robot, world):
+        self.robot = robot
+        self.world = world
+        self.nav_goal_subscriber = None
+        self.nav_path_publisher = None
+        self.localization_system = None
+
+    def execute_navigation_task(self, goal_pose):
+        """Execute navigation task in Isaac Sim"""
+        # Plan path to goal
+        path = self.plan_path_to_goal(goal_pose)
+
+        if path is None:
+            self.get_logger().error("Could not plan path to goal")
+            return False
+
+        # Execute navigation along path
+        success = self.follow_path(path)
+
+        return success
+
+    def plan_path_to_goal(self, goal_pose):
+        """Plan path in simulation environment"""
+        # This would interface with Isaac Sim's path planning
+        # or use a connected Nav2 system
+        pass
+
+    def follow_path(self, path):
+        """Follow path in simulation with humanoid-aware control"""
+        controller = HumanoidTrajectoryController()
+
+        for waypoint in path:
+            # Get current robot state
+            current_pose = self.robot.get_world_pose()
+            current_velocity = self.robot.get_velocities()
+
+            # Calculate control command
+            cmd_vel = controller.follow_path([waypoint], current_pose, current_velocity)
+
+            # Apply command to robot
+            self.apply_velocity_command(cmd_vel)
+
+            # Step simulation
+            self.world.step(render=True)
+
+            # Check if reached waypoint
+            if self.reached_waypoint(current_pose, waypoint):
+                continue  # Move to next waypoint
+
+        return True  # Successfully followed path
+
+    def apply_velocity_command(self, cmd_vel):
+        """Apply velocity command to humanoid robot in simulation"""
+        # Convert Twist command to joint commands for humanoid
+        # This involves complex inverse kinematics and balance control
+        pass
+
+    def reached_waypoint(self, current_pose, waypoint, tolerance=0.2):
+        """Check if robot reached the waypoint"""
+        current_pos = np.array([
+            current_pose[0][0],  # x
+            current_pose[0][1],  # y
+        ])
+
+        waypoint_pos = np.array([
+            waypoint.pose.position.x,
+            waypoint.pose.position.y
+        ])
+
+        distance = np.linalg.norm(current_pos - waypoint_pos)
+        return distance <= tolerance
+```
+
+## Recovery Behaviors for Humanoid Robots
+
+### Humanoid-Specific Recovery Behaviors
+
+```python
+class HumanoidRecoveryBehaviors:
+    def __init__(self, robot):
+        self.robot = robot
+        self.balance_controller = None
+        self.recovery_timeout = 30.0  # seconds
+
+    def clear_costmap_recovery(self, costmap_type="local"):
+        """Clear costmap to recover from navigation issues"""
+        # In simulation, this might involve resetting costmap data
+        # In real robots, this would call the costmap clear service
+        pass
+
+    def spin_recovery(self, angle=1.57):
+        """Spin in place to clear local minima"""
+        # Implement controlled spinning motion for humanoid
+        # This needs to maintain balance while turning
+        start_yaw = self.get_robot_yaw()
+        target_yaw = start_yaw + angle
+
+        cmd_vel = Twist()
+        cmd_vel.angular.z = 0.2  # Slow rotation for balance
+
+        start_time = self.get_clock().now()
+
+        while self.get_robot_yaw() < target_yaw:
+            current_time = self.get_clock().now()
+            if (current_time - start_time).nanoseconds / 1e9 > self.recovery_timeout:
+                break  # Timeout
+
+            # Apply command and step simulation
+            self.apply_command(cmd_vel)
+            self.world.step(render=True)
+
+    def backup_recovery(self, distance=0.2, speed=0.05):
+        """Backup to escape difficult situations"""
+        # Get initial position
+        initial_pos = self.robot.get_world_pose()[0]
+
+        # Move backward slowly to maintain balance
+        cmd_vel = Twist()
+        cmd_vel.linear.x = -speed
+
+        while True:
+            # Check if moved desired distance
+            current_pos = self.robot.get_world_pose()[0]
+            moved_distance = np.linalg.norm(np.array(current_pos) - np.array(initial_pos))
+
+            if moved_distance >= distance:
+                break
+
+            # Apply command and step simulation
+            self.apply_command(cmd_vel)
+            self.world.step(render=True)
+
+    def balance_recovery(self):
+        """Recover balance if humanoid is unstable"""
+        # Implement balance recovery sequence
+        # This might involve adjusting stance, COM position, etc.
+        pass
+
+    def wait_recovery(self, duration=2.0):
+        """Wait for a specified duration as recovery"""
+        start_time = self.get_clock().now()
+
+        while True:
+            current_time = self.get_clock().now()
+            elapsed = (current_time - start_time).nanoseconds / 1e9
+
+            if elapsed >= duration:
+                break
+
+            # Stop robot during wait
+            self.apply_command(Twist())
+            self.world.step(render=True)
+```
+
+## Performance Optimization
+
+### Navigation Performance Considerations
+
+```python
+class OptimizedHumanoidNavigation:
+    def __init__(self):
+        self.path_cache = {}  # Cache frequently used paths
+        self.localization_accuracy = 0.1  # meters
+        self.planning_frequency = 1.0     # Hz
+        self.control_frequency = 20.0     # Hz
+
+    def optimize_path_planning(self, start, goal):
+        """Optimize path planning for performance"""
+        # Check if path is already cached
+        cache_key = (start, goal)
+        if cache_key in self.path_cache:
+            return self.path_cache[cache_key]
+
+        # Plan path
+        path = self.plan_path(start, goal)
+
+        # Cache the result
+        self.path_cache[cache_key] = path
+
+        return path
+
+    def adaptive_planning_frequency(self, environment_complexity):
+        """Adjust planning frequency based on environment"""
+        if environment_complexity > 0.7:  # High complexity
+            return 2.0  # Plan more frequently
+        elif environment_complexity < 0.3:  # Low complexity
+            return 0.5  # Plan less frequently
+        else:
+            return 1.0  # Default frequency
+
+    def optimize_controller(self, robot_state):
+        """Optimize controller parameters based on robot state"""
+        # Adjust controller gains based on terrain, speed, etc.
+        if robot_state['on_slopes']:
+            # Reduce gains for stability on slopes
+            self.controller.kp_linear *= 0.8
+            self.controller.kp_angular *= 0.8
+        else:
+            # Use normal gains
+            self.controller.kp_linear = self.default_kp_linear
+            self.controller.kp_angular = self.default_kp_angular
+```
+
+## Best Practices for Humanoid Navigation
+
+### Safety and Reliability
+
+- Implement multiple levels of safety checks
+- Use conservative velocity limits for humanoid stability
+- Include proper localization validation
+- Implement appropriate recovery behaviors
+- Test thoroughly in simulation before real-world deployment
+
+### Performance Optimization
+
+- Use appropriate planning frequencies
+- Optimize costmap resolution for humanoid requirements
+- Implement efficient path smoothing
+- Use caching for frequently computed paths
+- Monitor computational performance
+
+### Validation and Testing
+
+- Test on various terrain types
+- Validate localization accuracy
+- Test recovery behaviors
+- Verify balance constraints
+- Test in complex, dynamic environments
+
+## Troubleshooting Common Issues
+
+### Navigation Problems
+
+```python
+def diagnose_navigation_issues():
+    """Diagnose common navigation issues for humanoid robots"""
+    issues = []
+
+    # Check localization quality
+    localization_accuracy = check_localization_accuracy()
+    if localization_accuracy > 0.5:  # More than 50cm error
+        issues.append("Poor localization accuracy - consider improving landmark detection")
+
+    # Check path planning
+    path_success_rate = check_path_planning_success()
+    if path_success_rate < 0.8:  # Less than 80% success
+        issues.append("Frequent path planning failures - check costmap configuration")
+
+    # Check controller performance
+    tracking_error = check_path_tracking_error()
+    if tracking_error > 0.3:  # More than 30cm tracking error
+        issues.append("Poor path tracking - adjust controller parameters")
+
+    # Check recovery behavior frequency
+    recovery_frequency = check_recovery_frequency()
+    if recovery_frequency > 0.1:  # More than 10% of time in recovery
+        issues.append("Too frequent recovery behaviors - investigate root cause")
+
+    return issues
+```
+
+### Balance-Related Issues
+
+- Reduce navigation speed in complex environments
+- Increase safety margins around obstacles
+- Use more conservative turning rates
+- Implement balance-aware path planning
+- Adjust controller parameters for stability
+
+## Summary
+
+Nav2 provides a comprehensive navigation system that can be adapted for humanoid robotics applications. The key to successful humanoid navigation lies in properly configuring the system to account for the unique characteristics of bipedal robots, including balance constraints, step limitations, and stability requirements. Proper integration with simulation environments like Isaac Sim enables thorough testing and validation before deployment on real hardware.
+
+## Exercises
+
+1. Configure Nav2 for a humanoid robot with appropriate parameters
+2. Implement a humanoid-aware path planner that considers step height limitations
+3. Create custom recovery behaviors for humanoid-specific navigation challenges
+4. Test navigation performance in Isaac Sim with various terrain types
+
+## References
+
+[1] S. Koenig and R. Simmons, "XNap: High-Quality Path Planning for Mobile Robots," Journal of Field Robotics, vol. 15, no. 8, pp. 447-462, 1998.
+
+[2] M. Quigley et al., "Pareto Optimal Multi-Robot Path Planning," IEEE ICRA, 2009.
+
+[3] Nav2 Documentation, "Navigation2 User Guide," https://navigation.ros.org/

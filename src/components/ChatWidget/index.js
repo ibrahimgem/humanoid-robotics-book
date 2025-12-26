@@ -1,3 +1,4 @@
-import ChatWidget from './ChatWidget';
-
-export default ChatWidget;
+/**
+ * ChatWidget index file
+ */
+export { default } from './ChatWidget';
