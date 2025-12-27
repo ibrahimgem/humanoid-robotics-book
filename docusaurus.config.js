@@ -2,7 +2,7 @@
 // `@type` JSDoc annotations allow IDEs and type checkers to infer types
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'Humanoid Robotics Book',
+  title: 'Physical AI & Humanoid Robotics',
   tagline: 'A Comprehensive Guide to Physical AI & Humanoid Robotics',
   favicon: 'img/favicon.ico',
 
@@ -93,12 +93,30 @@ const config = {
     ({
       // Replace with your project's social card
       image: 'img/docusaurus-social-card.jpg',
+      // Color mode configuration
+      colorMode: {
+        defaultMode: 'light',
+        disableSwitch: false,
+        respectPrefersColorScheme: true,
+      },
+      // Announcement bar (optional - remove if not needed)
+      // announcementBar: {
+      //   id: 'announcement',
+      //   content: 'New content available! Check out our latest chapters on AI integration.',
+      //   backgroundColor: '#2563eb',
+      //   textColor: '#ffffff',
+      //   isCloseable: true,
+      // },
       navbar: {
-        title: 'Humanoid Robotics Book',
+        title: 'Physical AI & Humanoid Robotics',
         logo: {
           alt: 'Robotics Logo',
           src: 'img/logo.svg',
+          srcDark: 'img/logo.svg',
+          width: 32,
+          height: 32,
         },
+        hideOnScroll: false,
         items: [
           {
             type: 'docSidebar',
@@ -107,9 +125,8 @@ const config = {
             label: 'Book',
           },
           {
-            to: '/docs/introduction',
-            label: 'Docs',
-            position: 'left',
+            type: 'search',
+            position: 'right',
           },
           {
             href: 'https://github.com/ibrahimgem/humanoid-robotics-book',
@@ -154,16 +171,45 @@ const config = {
                 label: 'GitHub',
                 href: 'https://github.com/ibrahimgem/humanoid-robotics-book',
               },
+              {
+                label: 'RAG AI Chatbot',
+                to: '/',
+              },
+              {
+                label: 'Physical AI Course',
+                href: 'https://github.com/ibrahimgem',
+              },
+              {
+                label: 'Humanoid Robotics Modules',
+                to: '/docs/introduction',
+              },
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} Humanoid Robotics Book. Built with Docusaurus.`,
+        copyright: `Copyright © ${new Date().getFullYear()} Physical AI & Humanoid Robotics. Built with Docusaurus.`,
       },
       prism: {
         theme: require('prism-react-renderer').themes.github,
         darkTheme: require('prism-react-renderer').themes.dracula,
         additionalLanguages: ['python', 'yaml', 'bash', 'json', 'javascript', 'jsx', 'tsx', 'typescript'],
       },
+      // Table of contents configuration
+      tableOfContents: {
+        minHeadingLevel: 2,
+        maxHeadingLevel: 4,
+      },
+      // Documentation sidebar configuration
+      docs: {
+        sidebar: {
+          hideable: true,
+          autoCollapseCategories: true,
+        },
+      },
+      // Metadata
+      metadata: [
+        {name: 'keywords', content: 'robotics, humanoid, ROS 2, physical AI, robot simulation, Isaac Sim'},
+        {name: 'author', content: 'Humanoid Robotics Book Team'},
+      ],
     }),
 };
 

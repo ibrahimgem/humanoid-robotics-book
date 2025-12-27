@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './ChatWidget.css';
-import { getApiUrl, API_CONFIG } from '../../config/api';
 
 const ChatWidget = ({ initialMode = 'global' }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -17,7 +16,7 @@ const ChatWidget = ({ initialMode = 'global' }) => {
   useEffect(() => {
     const initSession = async () => {
       try {
-        const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.SESSION), {
+        const response = await fetch('/api/session', {
           method: 'POST',
         });
         const data = await response.json();
@@ -58,7 +57,7 @@ const ChatWidget = ({ initialMode = 'global' }) => {
         queryData.selected_text = selectedText;
       }
 
-      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.CHAT), {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -104,7 +103,7 @@ const ChatWidget = ({ initialMode = 'global' }) => {
     setQueryMode(newMode);
 
     try {
-      await fetch(getApiUrl(API_CONFIG.ENDPOINTS.QUERY_MODE), {
+      await fetch('/api/query-mode', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
