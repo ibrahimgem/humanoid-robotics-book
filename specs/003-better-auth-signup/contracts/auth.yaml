@@ -1,0 +1,574 @@
+openapi: 3.0.3
+info:
+  title: Better Auth API
+  description: Authentication API for user signup, signin, and session management
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: https://api.example.com/v1
+    description: Production server
+  - url: http://localhost:8000/v1
+    description: Development server
+
+tags:
+  - name: Authentication
+    description: User registration and login endpoints
+  - name: Password Management
+    description: Password reset and recovery endpoints
+  - name: MFA
+    description: Multi-factor authentication endpoints
+
+paths:
+  /auth/signup:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user account
+      description: Creates a new user account with email and password. Sends email verification link.
+      operationId: signupUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+            example:
+              email: user@example.com
+              password: SecurePass123
+              confirmPassword: SecurePass123
+      responses:
+        '201':
+          description: Account created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupResponse'
+              example:
+                success: true
+                message: "Account created. Please check your email to verify."
+                userId: "550e8400-e29b-41d4-a716-446655440000"
+        '400':
+          description: Validation error or email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                weakPassword:
+                  summary: Password too weak
+                  value:
+                    success: false
+                    error: "Password must be at least 8 characters with uppercase, lowercase, and number"
+                    code: "WEAK_PASSWORD"
+                emailExists:
+                  summary: Email already registered
+                  value:
+                    success: false
+                    error: "An account with this email already exists"
+                    code: "EMAIL_EXISTS"
+        '429':
+          description: Too many signup attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "Too many signup attempts. Please try again in 15 minutes."
+                retryAfter: 900
+
+  /auth/signin:
+    post:
+      tags:
+        - Authentication
+      summary: Sign in to existing account
+      description: Authenticates user with email and password. Returns session token.
+      operationId: signinUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SigninRequest'
+            example:
+              email: user@example.com
+              password: SecurePass123
+              rememberMe: true
+      responses:
+        '200':
+          description: Successful authentication
+          headers:
+            Set-Cookie:
+              description: Session cookie for authenticated requests
+              schema:
+                type: string
+                example: session=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; Path=/; HttpOnly; Secure; SameSite=Lax
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SigninResponse'
+              example:
+                success: true
+                user:
+                  id: "550e8400-e29b-41d4-a716-446655440000"
+                  email: "user@example.com"
+                  emailVerified: true
+                  mfaEnabled: false
+                session:
+                  token: "session_abc123..."
+                  expiresAt: "2025-12-28T07:00:00Z"
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "Invalid email or password"
+                code: "INVALID_CREDENTIALS"
+                attemptsRemaining: 4
+        '403':
+          description: Email not verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "Please verify your email before signing in"
+                code: "EMAIL_NOT_VERIFIED"
+                verificationSent: true
+
+  /auth/signout:
+    post:
+      tags:
+        - Authentication
+      summary: Sign out current session
+      description: Invalidates the current session token
+      operationId: signoutUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Successfully signed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignoutResponse'
+        '401':
+          description: No active session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/password/reset:
+    post:
+      tags:
+        - Password Management
+      summary: Request password reset
+      description: Sends password reset email with secure token
+      operationId: requestPasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+            example:
+              email: user@example.com
+      responses:
+        '200':
+          description: Reset email sent (if email exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetResponse'
+              example:
+                success: true
+                message: "If an account exists, a password reset link has been sent"
+        '429':
+          description: Too many reset requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "Password reset already requested. Please check your email."
+                retryAfter: 3600
+
+  /auth/password/reset/confirm:
+    post:
+      tags:
+        - Password Management
+      summary: Confirm password reset
+      description: Updates password using valid reset token
+      operationId: confirmPasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequest'
+            example:
+              token: "reset_abc123def456"
+              newPassword: "NewSecurePass456"
+              confirmNewPassword: "NewSecurePass456"
+      responses:
+        '200':
+          description: Password updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                success: true
+                message: "Password has been reset. Please sign in with your new password."
+        '400':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "Reset link is invalid or has expired"
+                code: "INVALID_TOKEN"
+
+  /auth/email/verify:
+    post:
+      tags:
+        - Authentication
+      summary: Verify email address
+      description: Confirms email using verification token from email
+      operationId: verifyEmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailVerifyRequest'
+            example:
+              token: "verify_abc123def456"
+      responses:
+        '200':
+          description: Email verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                success: true
+                message: "Email verified. You can now sign in."
+        '400':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/mfa/setup:
+    post:
+      tags:
+        - MFA
+      summary: Initialize MFA setup
+      description: Generates TOTP secret and QR code for authenticator app
+      operationId: setupMfa
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                force:
+                  type: boolean
+                  default: false
+                  description: Force reset MFA even if already enabled
+      responses:
+        '200':
+          description: MFA setup initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaSetupResponse'
+              example:
+                success: true
+                secret: "JBSWY3DPEHPK3PXP"
+                qrCode: "otpauth://totp/Example:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example"
+                backupCodes:
+                  - "ABCD-1234"
+                  - "EFGH-5678"
+                  - "IJKL-9012"
+                  - "MNOP-3456"
+                  - "QRST-7890"
+                  - "UVWX-1234"
+                  - "YZAB-5678"
+                  - "CDEF-9012"
+                  - "GHIJ-3456"
+                  - "KLMN-7890"
+
+  /auth/mfa/verify:
+    post:
+      tags:
+        - MFA
+      summary: Verify MFA code
+      description: Validates TOTP code during signin or MFA setup confirmation
+      operationId: verifyMfa
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaVerifyRequest'
+            example:
+              code: "123456"
+      responses:
+        '200':
+          description: MFA verification successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SigninResponse'
+        '401':
+          description: Invalid or expired code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "Invalid verification code"
+                code: "INVALID_CODE"
+                attemptsRemaining: 2
+                useBackupCode: true
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # Request Schemas
+    SignupRequest:
+      type: object
+      required:
+        - email
+        - password
+        - confirmPassword
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: "SecurePass123"
+        confirmPassword:
+          type: string
+          format: password
+          example: "SecurePass123"
+
+    SigninRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          example: "SecurePass123"
+        rememberMe:
+          type: boolean
+          default: false
+          example: false
+
+    PasswordResetRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+
+    PasswordResetConfirmRequest:
+      type: object
+      required:
+        - token
+        - newPassword
+        - confirmNewPassword
+      properties:
+        token:
+          type: string
+          example: "reset_abc123def456"
+        newPassword:
+          type: string
+          format: password
+          minLength: 8
+        confirmNewPassword:
+          type: string
+          format: password
+
+    EmailVerifyRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          example: "verify_abc123def456"
+
+    MfaVerifyRequest:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+          example: "123456"
+        backupCode:
+          type: string
+          example: "ABCD-1234"
+
+    # Response Schemas
+    SignupResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Account created. Please check your email to verify."
+        userId:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+    SigninResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        user:
+          $ref: '#/components/schemas/UserResponse'
+        session:
+          $ref: '#/components/schemas/SessionResponse'
+
+    SignoutResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Successfully signed out"
+
+    PasswordResetResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "If an account exists, a password reset link has been sent"
+
+    MfaSetupResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        secret:
+          type: string
+          example: "JBSWY3DPEHPK3PXP"
+        qrCode:
+          type: string
+          format: uri
+          example: "otpauth://totp/Example:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example"
+        backupCodes:
+          type: array
+          items:
+            type: string
+            example: "ABCD-1234"
+
+    MessageResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation completed successfully"
+
+    # Common Schemas
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        emailVerified:
+          type: boolean
+          example: true
+        mfaEnabled:
+          type: boolean
+          example: false
+
+    SessionResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: "session_abc123..."
+        expiresAt:
+          type: string
+          format: date-time
+          example: "2025-12-28T07:00:00Z"
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "An error occurred"
+        code:
+          type: string
+          example: "ERROR_CODE"
+        attemptsRemaining:
+          type: integer
+          example: 4
+        retryAfter:
+          type: integer
+          example: 900

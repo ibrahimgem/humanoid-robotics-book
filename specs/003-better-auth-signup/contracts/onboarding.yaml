@@ -1,0 +1,675 @@
+openapi: 3.0.3
+info:
+  title: Onboarding API
+  description: User onboarding questionnaire and profile management endpoints
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: https://api.example.com/v1
+    description: Production server
+  - url: http://localhost:8000/v1
+    description: Development server
+
+tags:
+  - name: Onboarding
+    description: User profile questionnaire endpoints
+  - name: Profile
+    description: User profile management and personalization
+
+paths:
+  /onboarding/status:
+    get:
+      tags:
+        - Onboarding
+      summary: Get onboarding status
+      description: Returns current user's onboarding completion status
+      operationId: getOnboardingStatus
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Onboarding status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingStatusResponse'
+              example:
+                completed: false
+                currentStep: 2
+                totalSteps: 4
+                lastCompletedAt: null
+
+  /onboarding/step:
+    get:
+      tags:
+        - Onboarding
+      summary: Get current step data
+      description: Returns saved data for current onboarding step (for resuming)
+      operationId: getCurrentStep
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Step data retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StepDataResponse'
+              example:
+                step: 2
+                data:
+                  python: "intermediate"
+                  javascript: "beginner"
+                  cpp: "none"
+
+  /onboarding/step/{stepNumber}:
+    post:
+      tags:
+        - Onboarding
+      summary: Submit onboarding step
+      description: Saves answers for current step and advances to next
+      operationId: submitStep
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: stepNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 4
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StepSubmitRequest'
+            example:
+              data:
+                python: "intermediate"
+                javascript: "beginner"
+                cpp: "none"
+      responses:
+        '200':
+          description: Step saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StepSubmitResponse'
+              example:
+                success: true
+                nextStep: 2
+                progress: 25
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "Please provide at least one skill level"
+                code: "INVALID_STEP_DATA"
+
+  /onboarding/complete:
+    post:
+      tags:
+        - Onboarding
+      summary: Complete onboarding
+      description: Finalizes onboarding, updates profile, generates recommendations
+      operationId: completeOnboarding
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardingCompleteRequest'
+            example:
+              interests: ["healthtech", "cybersecurity"]
+              learningStyle: "hands-on"
+      responses:
+        '200':
+          description: Onboarding completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingCompleteResponse'
+              example:
+                success: true
+                completed: true
+                recommendations:
+                  - id: "intro-robotics"
+                    title: "Introduction to Robotics"
+                    matchScore: 95
+                  - id: "python-basics"
+                    title: "Python for Robotics"
+                    matchScore: 88
+                  - id: "ros2-fundamentals"
+                    title: "ROS 2 Fundamentals"
+                    matchScore: 82
+
+  /profile:
+    get:
+      tags:
+        - Profile
+      summary: Get user profile
+      description: Returns complete user profile with questionnaire responses
+      operationId: getProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+              example:
+                userId: "550e8400-e29b-41d4-a716-446655440000"
+                email: "user@example.com"
+                profile:
+                  softwareSkills:
+                    python: "intermediate"
+                    javascript: "beginner"
+                  hardwareExperience:
+                    hasRobotExperience: true
+                    roboticsPlatforms: ["TurtleBot", "UR5"]
+                    rosExperience: "beginner"
+                  mlBackground:
+                    mlLevel: "intermediate"
+                    hasLlmExperience: true
+                    hasCvExperience: false
+                  interests: ["healthtech", "cybersecurity"]
+                  learningStyle: "hands-on"
+                onboardingCompleted: true
+                createdAt: "2025-12-27T10:00:00Z"
+                updatedAt: "2025-12-27T10:30:00Z"
+
+    patch:
+      tags:
+        - Profile
+      summary: Update user profile
+      description: Updates profile responses (can re-take questionnaire)
+      operationId: updateProfile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdateRequest'
+            example:
+              softwareSkills:
+                python: "advanced"
+                javascript: "intermediate"
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                success: true
+                message: "Profile updated successfully"
+                recommendationsUpdated: true
+
+  /profile/export:
+    get:
+      tags:
+        - Profile
+      summary: Export user data (GDPR)
+      description: Returns all user data in JSON format for GDPR compliance
+      operationId: exportUserData
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User data exported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataExportResponse'
+              example:
+                exportId: "exp_abc123"
+                generatedAt: "2025-12-28T10:00:00Z"
+                expiresAt: "2025-12-29T10:00:00Z"
+                downloadUrl: "/api/profile/export/download?token=xyz789"
+
+  /profile/export/download:
+    get:
+      tags:
+        - Profile
+      summary: Download exported data
+      description: Downloads the actual exported data file
+      operationId: downloadExport
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          example: "xyz789"
+      responses:
+        '200':
+          description: Data file downloaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exportId:
+                    type: string
+                    example: "exp_abc123"
+                  exportedAt:
+                    type: string
+                    format: date-time
+                    example: "2025-12-28T10:00:00Z"
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      email:
+                        type: string
+                        format: email
+                      createdAt:
+                        type: string
+                        format: date-time
+                  profile:
+                    type: object
+                  sessions:
+                    type: array
+                  authLogs:
+                    type: array
+        '410':
+          description: Export expired or not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /profile/delete:
+    post:
+      tags:
+        - Profile
+      summary: Request account deletion (GDPR)
+      description: Initiates 30-day grace period deletion process
+      operationId: requestAccountDeletion
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - confirmEmail
+              properties:
+                confirmEmail:
+                  type: string
+                  format: email
+                  example: user@example.com
+                reason:
+                  type: string
+                  enum:
+                    - privacy_concerns
+                    - not_useful
+                    - too_complex
+                    - other
+      responses:
+        '200':
+          description: Deletion scheduled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeletionScheduledResponse'
+              example:
+                success: true
+                message: "Account deletion scheduled. You have 30 days to cancel."
+                deletionScheduledAt: "2026-01-27T10:00:00Z"
+                cancelUrl: "/api/profile/delete/cancel?token=abc123"
+
+  /profile/delete/cancel:
+    post:
+      tags:
+        - Profile
+      summary: Cancel deletion
+      description: Cancels pending deletion within 30-day grace period
+      operationId: cancelDeletion
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  example: "abc123"
+      responses:
+        '200':
+          description: Deletion cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              example:
+                success: true
+                message: "Deletion cancelled. Your account is active."
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # Onboarding Status
+    OnboardingStatusResponse:
+      type: object
+      properties:
+        completed:
+          type: boolean
+          example: false
+        currentStep:
+          type: integer
+          minimum: 1
+          maximum: 4
+          example: 2
+        totalSteps:
+          type: integer
+          example: 4
+        lastCompletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+
+    StepDataResponse:
+      type: object
+      properties:
+        step:
+          type: integer
+          example: 2
+        data:
+          type: object
+          additionalProperties: true
+
+    StepSubmitRequest:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          additionalProperties: true
+          description: Step-specific data
+
+    StepSubmitResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        nextStep:
+          type: integer
+          nullable: true
+          example: 3
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 50
+
+    OnboardingCompleteRequest:
+      type: object
+      required:
+        - interests
+        - learningStyle
+      properties:
+        interests:
+          type: array
+          items:
+            type: string
+            enum:
+              - healthtech
+              - cybersecurity
+              - ai
+              - robotics
+              - computer_vision
+              - nlp
+              - reinforcement_learning
+              - simulation
+          minItems: 1
+          maxItems: 5
+          example: ["healthtech", "cybersecurity"]
+        learningStyle:
+          type: string
+          enum:
+            - theory
+            - hands-on
+            - mixed
+          example: "hands-on"
+
+    OnboardingCompleteResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        completed:
+          type: boolean
+          example: true
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Recommendation'
+
+    Recommendation:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "intro-robotics"
+        title:
+          type: string
+          example: "Introduction to Robotics"
+        matchScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 95
+
+    # Profile
+    ProfileResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        profile:
+          $ref: '#/components/schemas/ProfileData'
+        onboardingCompleted:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ProfileData:
+      type: object
+      properties:
+        softwareSkills:
+          type: object
+          additionalProperties:
+            type: string
+            enum:
+              - none
+              - beginner
+              - intermediate
+              - advanced
+              - expert
+          example:
+            python: "intermediate"
+            javascript: "beginner"
+        hardwareExperience:
+          type: object
+          properties:
+            hasRobotExperience:
+              type: boolean
+              example: true
+            roboticsPlatforms:
+              type: array
+              items:
+                type: string
+              example: ["TurtleBot", "UR5"]
+            rosExperience:
+              type: string
+              enum:
+                - none
+                - beginner
+                - intermediate
+                - advanced
+                - expert
+              example: "beginner"
+        mlBackground:
+          type: object
+          properties:
+            mlLevel:
+              type: string
+              enum:
+                - none
+                - beginner
+                - intermediate
+                - advanced
+                - expert
+              example: "intermediate"
+            hasLlmExperience:
+              type: boolean
+              example: true
+            hasCvExperience:
+              type: boolean
+              example: false
+        interests:
+          type: array
+          items:
+            type: string
+          example: ["healthtech", "cybersecurity"]
+        learningStyle:
+          type: string
+          enum:
+            - theory
+            - hands-on
+            - mixed
+          example: "hands-on"
+
+    ProfileUpdateRequest:
+      type: object
+      properties:
+        softwareSkills:
+          type: object
+          additionalProperties:
+            type: string
+        hardwareExperience:
+          type: object
+        mlBackground:
+          type: object
+        interests:
+          type: array
+          items:
+            type: string
+        learningStyle:
+          type: string
+          enum:
+            - theory
+            - hands-on
+            - mixed
+
+    # Data Export (GDPR)
+    DataExportResponse:
+      type: object
+      properties:
+        exportId:
+          type: string
+          example: "exp_abc123"
+        generatedAt:
+          type: string
+          format: date-time
+          example: "2025-12-28T10:00:00Z"
+        expiresAt:
+          type: string
+          format: date-time
+          example: "2025-12-29T10:00:00Z"
+        downloadUrl:
+          type: string
+          format: uri
+          example: "/api/profile/export/download?token=xyz789"
+
+    # Account Deletion (GDPR)
+    DeletionScheduledResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Account deletion scheduled. You have 30 days to cancel."
+        deletionScheduledAt:
+          type: string
+          format: date-time
+          example: "2026-01-27T10:00:00Z"
+        cancelUrl:
+          type: string
+          format: uri
+          example: "/api/profile/delete/cancel?token=abc123"
+
+    # Common
+    MessageResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation completed successfully"
+        recommendationsUpdated:
+          type: boolean
+          example: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "An error occurred"
+        code:
+          type: string
+          example: "ERROR_CODE"
