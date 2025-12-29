@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './ChatWidget.css';
+import { getApiUrl, API_CONFIG } from '../../config/api';
 
 const ChatWidget = ({ initialMode = 'global' }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -16,7 +17,7 @@ const ChatWidget = ({ initialMode = 'global' }) => {
   useEffect(() => {
     const initSession = async () => {
       try {
-        const response = await fetch('/api/session', {
+        const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.SESSION), {
           method: 'POST',
         });
         const data = await response.json();
@@ -57,7 +58,7 @@ const ChatWidget = ({ initialMode = 'global' }) => {
         queryData.selected_text = selectedText;
       }
 
-      const response = await fetch('/api/chat', {
+      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.CHAT), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -103,7 +104,7 @@ const ChatWidget = ({ initialMode = 'global' }) => {
     setQueryMode(newMode);
 
     try {
-      await fetch('/api/query-mode', {
+      await fetch(getApiUrl(API_CONFIG.ENDPOINTS.QUERY_MODE), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -270,8 +271,32 @@ const ChatWidget = ({ initialMode = 'global' }) => {
           onClick={() => setIsOpen(true)}
           aria-label="Open AI assistant chat"
           aria-expanded="false"
+          title="Ask AI Assistant"
         >
-          💬 Ask AI
+          <svg
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M12 2C6.48 2 2 6.48 2 12C2 13.54 2.38 14.99 3.05 16.28L2 22L7.72 20.95C9.01 21.62 10.46 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2Z"
+              fill="currentColor"
+              opacity="0.9"
+            />
+            <circle cx="9" cy="11" r="1.5" fill="white" />
+            <circle cx="12" cy="11" r="1.5" fill="white" />
+            <circle cx="15" cy="11" r="1.5" fill="white" />
+            <path
+              d="M7 14.5C7.5 15.5 9 17 12 17C15 17 16.5 15.5 17 14.5"
+              stroke="white"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              opacity="0.9"
+            />
+          </svg>
         </button>
       )}
     </div>

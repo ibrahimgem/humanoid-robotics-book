@@ -63,6 +63,18 @@ const sidebars = {
       },
     },
     'guidelines', // Add the guidelines document to the sidebar
+    {
+      type: 'category',
+      label: 'Auth Components',
+      items: [
+        'auth-components',
+        'auth-buttons-demo'
+      ],
+      link: {
+        type: 'generated-index',
+        description: 'Beautiful authentication components with humanoid robotics theme',
+      },
+    },
   ],
 };
 

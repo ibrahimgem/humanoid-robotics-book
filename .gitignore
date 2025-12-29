@@ -15,6 +15,10 @@ dist/
 # Environment variables
 .env*
 !.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # IDEs
 .vscode/
@@ -62,6 +66,22 @@ secrets/
 *.key
 *.pem
 *.crt
+*.cer
+*.der
+*.p12
+*.pfx
+*.p7b
+*.p7c
+*.p7r
+*.p7s
+*.srl
+*.csr
+*.ovpn
+*.secret
+*.config
+config.json
+config.yaml
+config.yml
 
 # Local configuration
 *.local

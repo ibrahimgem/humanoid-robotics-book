@@ -216,6 +216,8 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 - Neon Serverless Postgres (metadata, chat logs), Qdrant Cloud (vector embeddings) (002-rag-chatbot)
 - Python 3.11+ (for FastAPI backend), JavaScript/TypeScript (for Docusaurus frontend) + FastAPI, OpenAI Agents/ChatKit SDK, Qdrant client, Neon Postgres driver, Docusaurus (002-rag-ai-chatbot)
 - Qdrant Cloud (vector storage), Neon Serverless Postgres (metadata, logs), Docusaurus content files (002-rag-ai-chatbot)
+- TypeScript 5.x, Next.js 14+ (App Router) + Better Auth 1.x, Drizzle ORM, PostgreSQL (Neon), bcrypt, otpauth, Zod (003-better-auth-signup)
+- PostgreSQL with Drizzle ORM - relational model with JSONB for flexible profile fields (003-better-auth-signup)
 
 ## Recent Changes
 - 001-docusaurus-humanoid-book: Added JavaScript/TypeScript (Node.js 18+), Python (ROS 2 compatible) + Docusaurus (v3.x), React, MDX, Node.js, npm
