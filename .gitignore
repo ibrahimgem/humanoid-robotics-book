@@ -85,7 +85,11 @@ config.yml
 
 # Local configuration
 *.local
-config/
+config/*.json
+config/*.yaml
+config/*.yml
+config/.env*
+config/secrets/
 
 # Python (if needed for ROS integration)
 __pycache__/
